@@ -8,14 +8,18 @@ const articleView = document.getElementById('article-view');
 const closeArticleBtn = document.getElementById('close-article-btn');
 const articleContent = document.getElementById('article-content');
 const themeSwitchers = Array.from(document.querySelectorAll('[data-theme-switcher]'));
+const langSwitchers = Array.from(document.querySelectorAll('[data-lang-switcher]'));
 
 const state = {
   posts: [],
+  postIndex: [],
   categories: [],
   filter: 'all',
-  activePostSlug: null,
+  activePostKey: null,
+  activePostLang: null,
   view: 'home',
   postCache: new Map(),
+  language: 'en',
 };
 
 const themeStorageKey = 'gen-blog-theme';
@@ -72,6 +76,42 @@ const initTheme = () => {
   applyThemeMode(storedMode);
 };
 
+const updateLangSwitchers = (lang) => {
+  langSwitchers.forEach((switcher) => {
+    const toggle = switcher.querySelector('[data-lang-toggle]');
+    if (!toggle) {
+      return;
+    }
+    toggle.textContent = lang === 'zh' ? '中文' : 'EN';
+    toggle.setAttribute('aria-label', `Switch language (current ${lang})`);
+    toggle.setAttribute('aria-pressed', lang === 'zh');
+  });
+};
+
+const languageStorageKey = 'gen-blog-lang';
+const normalizeLanguage = (value) => {
+  const raw = value ? String(value).toLowerCase().trim() : '';
+  if (raw.startsWith('zh')) {
+    return 'zh';
+  }
+  if (raw.startsWith('en')) {
+    return 'en';
+  }
+  return null;
+};
+
+const getPreferredLanguage = () => {
+  const stored = normalizeLanguage(localStorage.getItem(languageStorageKey));
+  if (stored) {
+    return stored;
+  }
+  const browserLang = (navigator.language || '').toLowerCase();
+  if (browserLang.startsWith('zh')) {
+    return 'zh';
+  }
+  return 'en';
+};
+
 const slugifySegment = (value) =>
   value
     .toLowerCase()
@@ -87,16 +127,17 @@ const loadIndex = async () => {
   return response.json();
 };
 
-const loadPost = async (slug) => {
-  if (state.postCache.has(slug)) {
-    return state.postCache.get(slug);
+const loadPost = async (translationKey, lang) => {
+  const cacheKey = `${translationKey}:${lang}`;
+  if (state.postCache.has(cacheKey)) {
+    return state.postCache.get(cacheKey);
   }
-  const response = await fetch(`./posts/${slug}.json`);
+  const response = await fetch(`./posts/${translationKey}/${lang}.json`);
   if (!response.ok) {
     throw new Error('Failed to load post');
   }
   const data = await response.json();
-  state.postCache.set(slug, data);
+  state.postCache.set(cacheKey, data);
   return data;
 };
 
@@ -146,7 +187,7 @@ const createCard = (post) => {
   const card = document.createElement('div');
   const hasImage = Boolean(post.coverImage);
   card.className = hasImage ? 'card has-image' : 'card';
-  card.dataset.id = post.slug;
+  card.dataset.id = post.translationKey;
   card.tabIndex = 0;
   card.setAttribute('role', 'button');
 
@@ -180,7 +221,7 @@ const createCard = (post) => {
   }
 
   const handleOpen = () => {
-    navigateToPost(post.slug, card);
+    navigateToPost(post.translationKey, post.lang, card);
   };
 
   card.addEventListener('click', handleOpen);
@@ -213,7 +254,6 @@ const buildArticleHtml = (post) => {
          <div class="article-cover-overlay"></div>
        </div>`
     : '';
-
   return `
     ${coverHtml}
     <div class="article-text-content">
@@ -224,14 +264,17 @@ const buildArticleHtml = (post) => {
   `;
 };
 
-const openArticle = (post, sourceCardElement, pushHistory = true) => {
-  state.activePostSlug = post.slug;
+const openArticle = (post, sourceCardElement, { pushHistory = true, animate = true } = {}) => {
+  state.activePostKey = post.translationKey;
+  state.activePostLang = post.lang;
+  document.body.classList.add('view-article');
 
-  const card = sourceCardElement || document.querySelector(`.card[data-id="${post.slug}"]`);
+  const card =
+    sourceCardElement || document.querySelector(`.card[data-id="${post.translationKey}"]`);
 
   articleContent.innerHTML = buildArticleHtml(post);
 
-  if (card) {
+  if (animate && card) {
     const rect = card.getBoundingClientRect();
     articleView.style.transition = 'none';
     articleView.style.top = `${rect.top}px`;
@@ -254,28 +297,40 @@ const openArticle = (post, sourceCardElement, pushHistory = true) => {
       articleView.style.height = '100%';
       articleView.style.borderRadius = '0px';
     });
-  } else {
+  } else if (animate) {
     articleView.style.display = 'block';
     requestAnimationFrame(() => articleView.classList.add('active'));
+  } else {
+    articleView.style.display = 'block';
+    articleView.style.transition = 'none';
+    articleView.style.top = '0';
+    articleView.style.left = '0';
+    articleView.style.width = '100%';
+    articleView.style.height = '100%';
+    articleView.style.borderRadius = '0px';
+    articleView.style.opacity = '1';
+    articleView.style.transform = 'none';
+    articleView.classList.add('active');
   }
 
   document.body.style.overflow = 'hidden';
   state.view = 'article';
 
   if (pushHistory) {
-    navigate(`#/post/${post.slug}`);
+    navigate(buildPostHash(post.translationKey, post.lang));
   }
 };
 
 const closeArticle = (pushHistory = true) => {
-  if (!state.activePostSlug) {
+  if (!state.activePostKey) {
     return;
   }
 
-  const currentSlug = state.activePostSlug;
-  const card = document.querySelector(`.card[data-id="${currentSlug}"]`);
+  const currentKey = state.activePostKey;
+  const card = document.querySelector(`.card[data-id="${currentKey}"]`);
 
-  state.activePostSlug = null;
+  state.activePostKey = null;
+  state.activePostLang = null;
 
   if (card) {
     const rect = card.getBoundingClientRect();
@@ -330,6 +385,7 @@ const resetViewStyles = (el) => {
   el.style.transition = '';
   el.style.borderRadius = '';
   document.body.style.overflow = '';
+  document.body.classList.remove('view-article');
 };
 
 const navigate = (hash) => {
@@ -340,32 +396,89 @@ const navigate = (hash) => {
   }
 };
 
-const navigateToPost = (slug, card) => {
-  const existing = state.posts.find((post) => post.slug === slug);
+const navigateToPost = (translationKey, lang, card) => {
+  const existing = state.postIndex.find((post) => post.translationKey === translationKey);
   if (!existing) {
     return;
   }
-  openArticleBySlug(slug, card, true);
+  openArticleByKey(translationKey, lang, card, { pushHistory: true, animate: true });
 };
 
-const openArticleBySlug = async (slug, card, pushHistory) => {
-  if (state.activePostSlug === slug) {
+const resolvePostTranslation = (group, preferredLang) => {
+  if (!group || !group.translations) {
+    return null;
+  }
+  const languages = group.languages || Object.keys(group.translations);
+  const resolvedLang =
+    (preferredLang && languages.includes(preferredLang) && preferredLang) ||
+    (group.defaultLang && languages.includes(group.defaultLang) && group.defaultLang) ||
+    languages[0];
+  const translation = group.translations[resolvedLang];
+  if (!translation) {
+    return null;
+  }
+  return {
+    ...translation,
+    translationKey: group.translationKey,
+    lang: resolvedLang,
+    availableLangs: languages,
+    defaultLang: group.defaultLang,
+  };
+};
+
+const setLanguage = (lang, { persist = false } = {}) => {
+  const normalized = normalizeLanguage(lang);
+  if (!normalized) {
     return;
   }
+  if (persist) {
+    localStorage.setItem(languageStorageKey, normalized);
+  }
+  if (state.language === normalized) {
+    updateLangSwitchers(normalized);
+    return;
+  }
+  state.language = normalized;
+  state.posts = state.postIndex
+    .map((group) => resolvePostTranslation(group, state.language))
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  state.categories = buildCategories(state.posts);
+  renderFilters();
+  render();
+  updateLangSwitchers(state.language);
+};
 
-  const summary = state.posts.find((post) => post.slug === slug);
+const openArticleByKey = async (
+  translationKey,
+  lang,
+  card,
+  { pushHistory = true, animate = true, syncLanguage = true } = {}
+) => {
+  if (state.activePostKey === translationKey && state.activePostLang === lang) {
+    return;
+  }
+  const group = state.postIndex.find((post) => post.translationKey === translationKey);
+  if (!group) {
+    return;
+  }
+  const requestedLang = normalizeLanguage(lang) || state.language;
+  const summary = resolvePostTranslation(group, requestedLang);
   if (!summary) {
     return;
   }
+  if (syncLanguage) {
+    setLanguage(summary.lang, { persist: Boolean(lang) });
+  }
 
   try {
-    const detail = await loadPost(slug);
+    const detail = await loadPost(translationKey, summary.lang);
     const post = {
       ...summary,
       content: detail.content || summary.content || '',
       coverImage: detail.coverImage || summary.coverImage || null,
     };
-    openArticle(post, card, pushHistory);
+    openArticle(post, card, { pushHistory, animate });
   } catch (error) {
     console.error(error);
   }
@@ -375,6 +488,33 @@ const parseHash = () => {
   const raw = window.location.hash || '#/';
   const cleaned = raw.replace(/^#\//, '');
   return cleaned.split('/').filter(Boolean);
+};
+
+const buildPostHash = (translationKey, lang) => {
+  const encodedKey = translationKey
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  if (lang) {
+    return `#/post/${encodedKey}/${lang}`;
+  }
+  return `#/post/${encodedKey}`;
+};
+
+const parsePostRoute = (segments) => {
+  if (segments[0] !== 'post') {
+    return null;
+  }
+  const maybeLang = normalizeLanguage(segments[segments.length - 1]);
+  const keySegments = maybeLang ? segments.slice(1, -1) : segments.slice(1);
+  if (keySegments.length === 0) {
+    return null;
+  }
+  const decodedKey = keySegments.map((segment) => decodeURIComponent(segment)).join('/');
+  return {
+    translationKey: decodedKey,
+    lang: maybeLang,
+  };
 };
 
 const handleRoute = () => {
@@ -394,9 +534,9 @@ const handleRoute = () => {
     return;
   }
 
-  if (segments[0] === 'post' && segments[1]) {
-    const slug = decodeURIComponent(segments.slice(1).join('/'));
-    openArticleBySlug(slug, null, false);
+  const postRoute = parsePostRoute(segments);
+  if (postRoute) {
+    openArticleByKey(postRoute.translationKey, postRoute.lang, null, { pushHistory: false });
     return;
   }
 
@@ -420,6 +560,26 @@ closeAboutBtn.addEventListener('click', () => {
 
 closeArticleBtn.addEventListener('click', () => {
   navigate('#/');
+});
+
+langSwitchers.forEach((switcher) => {
+  const toggle = switcher.querySelector('[data-lang-toggle]');
+  if (!toggle) {
+    return;
+  }
+  toggle.addEventListener('click', () => {
+    const targetLang = state.language === 'zh' ? 'en' : 'zh';
+    toggle.classList.add('is-flash');
+    window.setTimeout(() => toggle.classList.remove('is-flash'), 180);
+    setLanguage(targetLang, { persist: true });
+    if (state.activePostKey) {
+      openArticleByKey(state.activePostKey, targetLang, null, {
+        pushHistory: true,
+        animate: false,
+        syncLanguage: false,
+      });
+    }
+  });
 });
 
 const setThemeMenuState = (switcher, isOpen) => {
@@ -483,11 +643,14 @@ document.addEventListener('keydown', (event) => {
 
 const init = async () => {
   try {
-    const posts = await loadIndex();
-    state.posts = posts.map((post) => ({
-      ...post,
-      categorySlug: post.categorySlug || slugifySegment(post.category || 'general'),
-    }));
+    const index = await loadIndex();
+    state.postIndex = index;
+    state.language = getPreferredLanguage();
+    updateLangSwitchers(state.language);
+    state.posts = state.postIndex
+      .map((group) => resolvePostTranslation(group, state.language))
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     state.categories = buildCategories(state.posts);
     renderFilters();
     render();

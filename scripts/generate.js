@@ -28,6 +28,17 @@ const slugifyPath = (value) =>
     .filter(Boolean)
     .join('/');
 
+const normalizeLang = (value) => {
+  const raw = value ? String(value).toLowerCase().trim() : '';
+  if (raw.startsWith('zh')) {
+    return 'zh';
+  }
+  if (raw.startsWith('en')) {
+    return 'en';
+  }
+  return 'default';
+};
+
 const humanize = (value) =>
   value.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
@@ -154,7 +165,9 @@ const loadPosts = async () => {
       const relativePath = path.relative(inputDir, filePath);
       const withoutExt = relativePath.replace(/\.md$/i, '');
       const slugSource = data.slug ? String(data.slug) : withoutExt;
-      const slug = slugifyPath(slugSource);
+      const translationKeySource = data.translationKey ? String(data.translationKey) : slugSource;
+      const translationKey = slugifyPath(translationKeySource);
+      const lang = normalizeLang(data.lang ?? data.language);
       const stat = await fs.stat(filePath);
       const date = formatDate(data.date) ?? formatDate(stat.mtime) ?? '1970-01-01';
       const heading = extractFirstHeading(content);
@@ -166,14 +179,15 @@ const loadPosts = async () => {
         (!frontmatterTitle || normalizeTitle(heading.text) === normalizeTitle(frontmatterTitle));
       const contentForHtml = shouldStripHeading ? stripFirstHeading(content, heading) : content;
       const category =
-        (data.category ? String(data.category) : null) || slug.split('/')[0] || 'General';
+        (data.category ? String(data.category) : null) || translationKey.split('/')[0] || 'General';
       const categorySlug = slugifySegment(category);
       const excerpt = (data.excerpt ? String(data.excerpt) : null) || buildExcerpt(contentForHtml);
       const html = marked.parse(contentForHtml);
       const cover = data.coverImage || data.cover || null;
 
       return {
-        slug,
+        translationKey,
+        lang,
         title,
         date,
         category,
@@ -185,7 +199,7 @@ const loadPosts = async () => {
     })
   );
 
-  return posts.filter((post) => post.slug.length > 0);
+  return posts.filter((post) => post.translationKey.length > 0);
 };
 
 const copyThemeAssets = async () => {
@@ -202,30 +216,70 @@ const run = async () => {
   await copyDirectoryIfExists(path.resolve('assets'), path.join(outputDir, 'assets'));
 
   const posts = await loadPosts();
-  const sortedPosts = [...posts].sort((a, b) => {
-    const aTime = new Date(a.date).getTime();
-    const bTime = new Date(b.date).getTime();
+  const groupedPosts = new Map();
+
+  posts.forEach((post) => {
+    if (!groupedPosts.has(post.translationKey)) {
+      groupedPosts.set(post.translationKey, {
+        translationKey: post.translationKey,
+        translations: {},
+      });
+    }
+    groupedPosts.get(post.translationKey).translations[post.lang] = {
+      title: post.title,
+      date: post.date,
+      category: post.category,
+      categorySlug: post.categorySlug,
+      excerpt: post.excerpt,
+      coverImage: post.coverImage,
+    };
+  });
+
+  const getDefaultLang = (translations) => {
+    if (translations.zh) {
+      return 'zh';
+    }
+    if (translations.en) {
+      return 'en';
+    }
+    const [first] = Object.keys(translations);
+    return first || 'default';
+  };
+
+  const groups = Array.from(groupedPosts.values()).map((group) => {
+    const languages = Object.keys(group.translations);
+    const defaultLang = getDefaultLang(group.translations);
+    return {
+      ...group,
+      languages,
+      defaultLang,
+    };
+  });
+
+  const sortedGroups = groups.sort((a, b) => {
+    const aLang = a.defaultLang || a.languages[0];
+    const bLang = b.defaultLang || b.languages[0];
+    const aTime = new Date(a.translations[aLang]?.date ?? '1970-01-01').getTime();
+    const bTime = new Date(b.translations[bLang]?.date ?? '1970-01-01').getTime();
     return bTime - aTime;
   });
 
-  const indexPayload = sortedPosts.map((post) => ({
-    slug: post.slug,
-    title: post.title,
-    date: post.date,
-    category: post.category,
-    categorySlug: post.categorySlug,
-    excerpt: post.excerpt,
-    coverImage: post.coverImage,
+  const indexPayload = sortedGroups.map((group) => ({
+    translationKey: group.translationKey,
+    languages: group.languages,
+    defaultLang: group.defaultLang,
+    translations: group.translations,
   }));
 
   await writeJson(path.join(outputDir, 'posts', 'index.json'), indexPayload);
 
   await Promise.all(
-    sortedPosts.map(async (post) => {
-      const detailPath = path.join(outputDir, 'posts', `${post.slug}.json`);
+    posts.map(async (post) => {
+      const detailPath = path.join(outputDir, 'posts', post.translationKey, `${post.lang}.json`);
       await ensureDir(path.dirname(detailPath));
       await writeJson(detailPath, {
-        slug: post.slug,
+        translationKey: post.translationKey,
+        lang: post.lang,
         title: post.title,
         date: post.date,
         category: post.category,
@@ -237,7 +291,7 @@ const run = async () => {
     })
   );
 
-  console.log(`Generated ${sortedPosts.length} posts in ${outputDir}`);
+  console.log(`Generated ${sortedGroups.length} posts in ${outputDir}`);
 };
 
 run().catch((error) => {

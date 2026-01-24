@@ -150,6 +150,45 @@ body {
   position: relative;
 }
 
+.lang-switcher {
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-toggle {
+  border: 1px solid var(--card-border);
+  background: var(--card-bg-hover);
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.4rem 0.75rem;
+  width: 3.2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.lang-toggle:hover {
+  color: var(--text-primary);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+
+.lang-toggle.is-flash,
+.lang-toggle:active {
+  color: var(--text-primary);
+  background: var(--pill-active-bg);
+  border-color: transparent;
+  transform: translateY(0);
+}
+
 .theme-trigger {
   border: 1px solid var(--card-border);
   background: var(--close-btn-bg);
@@ -277,15 +316,27 @@ body {
   height: 18px;
 }
 
-.theme-switcher-article {
+.article-controls {
   position: fixed;
   top: 2rem;
-  right: 2rem;
+  left: 5%;
+  right: 5%;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
   z-index: 101;
 }
 
 .theme-switcher-article .theme-menu {
   right: 0;
+}
+
+body.view-article .navbar .lang-switcher,
+body.view-article .navbar .theme-switcher {
+  display: none;
 }
 
 /* Filter Pills */
@@ -547,6 +598,15 @@ body {
   max-width: 740px;
   margin: 6rem auto 4rem;
   padding: 0 2rem;
+}
+
+.article-date {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .article-hero {
