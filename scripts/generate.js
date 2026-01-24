@@ -89,6 +89,7 @@ const renderLayout = ({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="view-transition" content="same-origin" />
     <title>${escapeHtml(title)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -144,7 +145,7 @@ const renderCard = (post, navPrefix) => {
   const cardClass = post.cover ? 'card has-image' : 'card';
 
   return `
-    <a class="${cardClass}" href="${navPrefix}posts/${post.slug}/">
+    <a class="${cardClass}" href="${navPrefix}posts/${post.slug}/" style="view-transition-name: post-${post.transitionName}">
       <div class="card-content-wrapper">
         <div class="card-date">${escapeHtml(post.date)} · ${escapeHtml(
           post.category.toUpperCase()
@@ -224,7 +225,7 @@ const renderPost = (post, categories) => {
     filtersHtml: buildFilterPills(categories, navPrefix, 'all'),
     controlsHtml: `<a class="btn-text" href="${navPrefix}about/">About</a>`,
     bodyHtml: `
-      <main class="article-content">
+      <main class="article-content" style="view-transition-name: post-${post.transitionName}">
         ${coverHtml}
         <div class="article-text-content">
           <div class="article-meta">${escapeHtml(post.date)} · ${escapeHtml(
@@ -255,6 +256,7 @@ const loadPosts = async () => {
       const withoutExt = relativePath.replace(/\.md$/i, '');
       const slugSource = data.slug ? String(data.slug) : withoutExt;
       const slug = slugifyPath(slugSource);
+      const transitionName = slug.replace(/\//g, '-');
       const stat = await fs.stat(filePath);
       const date = formatDate(data.date) ?? formatDate(stat.mtime) ?? '1970-01-01';
       const contentTitleMatch = content.match(/^#\s+(.+)$/m);
@@ -270,6 +272,7 @@ const loadPosts = async () => {
 
       return {
         slug,
+        transitionName,
         title,
         date,
         category,
