@@ -50,6 +50,10 @@ node .codex/skills/gen-blog-quality-baseline/scripts/quality_baseline.js --dist 
 - **Warnings** indicate growing performance risk (home payload, total dist size, oversized covers).
 - Use the thresholds as a starting point; tune once real usage data is available.
 
+### 4) Fix warnings quickly
+
+Avoid persistent warnings to prevent alert fatigue. See `references/remediation.md` for common fixes.
+
 ## Resources
 
 ### scripts/
@@ -57,3 +61,4 @@ node .codex/skills/gen-blog-quality-baseline/scripts/quality_baseline.js --dist 
 
 ### references/
 - `references/thresholds.md`: Recommended baseline thresholds and scaling guidance.
+- `references/remediation.md`: Common fixes to clear warnings.
