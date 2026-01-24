@@ -1,0 +1,12 @@
+{
+  "name": "gen-blog",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node ./scripts/generate.js"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "marked": "^11.1.1"
+  }
+}

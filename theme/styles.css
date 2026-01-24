@@ -1,0 +1,157 @@
+:root {
+  color-scheme: light;
+  --bg: #0f1115;
+  --panel: #151922;
+  --text: #f5f5f7;
+  --muted: #a6afbf;
+  --accent: #7bdff2;
+  --line: #232838;
+  --max-width: 980px;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #1c2230, #0c0f14 55%, #090b0f 100%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(8, 10, 15, 0.7);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.view {
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 32px 64px;
+  flex: 1;
+}
+
+.hero {
+  margin-bottom: 32px;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 36px;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.post-list {
+  display: grid;
+  gap: 20px;
+}
+
+.post-card {
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.post-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(123, 223, 242, 0.7);
+}
+
+.post-meta {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.post-card h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.post-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.article h1 {
+  margin-top: 0;
+  font-size: 34px;
+}
+
+.article .post-meta {
+  margin-bottom: 16px;
+}
+
+.article p {
+  line-height: 1.8;
+  color: #d8dce7;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  color: var(--accent);
+}
+
+.site-footer {
+  padding: 16px 32px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .site-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .view {
+    padding: 32px 20px 48px;
+  }
+}

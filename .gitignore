@@ -1,0 +1,4 @@
+.demo-static/
+.sample-markdown/
+dist/
+node_modules/
