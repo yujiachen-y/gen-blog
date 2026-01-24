@@ -7,6 +7,7 @@ const closeAboutBtn = document.getElementById('close-about-btn');
 const articleView = document.getElementById('article-view');
 const closeArticleBtn = document.getElementById('close-article-btn');
 const articleContent = document.getElementById('article-content');
+const themeSwitchers = Array.from(document.querySelectorAll('[data-theme-switcher]'));
 
 const state = {
   posts: [],
@@ -15,6 +16,60 @@ const state = {
   activePostSlug: null,
   view: 'home',
   postCache: new Map(),
+};
+
+const themeStorageKey = 'gen-blog-theme';
+const themeModes = ['auto', 'dark', 'light'];
+const themeState = {
+  mode: 'auto',
+};
+
+const normalizeThemeMode = (mode) => (themeModes.includes(mode) ? mode : 'auto');
+
+const getNextThemeMode = (mode) => {
+  const index = themeModes.indexOf(mode);
+  const nextIndex = index === -1 ? 0 : (index + 1) % themeModes.length;
+  return themeModes[nextIndex];
+};
+
+const updateThemeToggles = (mode) => {
+  const labelText = mode.charAt(0).toUpperCase() + mode.slice(1);
+  const nextMode = getNextThemeMode(mode);
+  themeSwitchers.forEach((switcher) => {
+    switcher.dataset.themeState = mode;
+    const label = switcher.querySelector('[data-theme-label]');
+    if (label) {
+      label.textContent = labelText;
+    }
+    const trigger = switcher.querySelector('[data-theme-trigger]');
+    if (trigger) {
+      trigger.setAttribute(
+        'aria-label',
+        `Theme mode: ${labelText}. Click to switch to ${nextMode}.`
+      );
+    }
+    const options = switcher.querySelectorAll('[data-theme-option]');
+    options.forEach((option) => {
+      const isSelected = option.dataset.themeOption === mode;
+      option.classList.toggle('is-selected', isSelected);
+      option.setAttribute('aria-selected', isSelected);
+    });
+  });
+};
+
+const applyThemeMode = (mode, { persist = false } = {}) => {
+  const normalizedMode = normalizeThemeMode(mode);
+  themeState.mode = normalizedMode;
+  document.documentElement.setAttribute('data-theme', normalizedMode);
+  updateThemeToggles(normalizedMode);
+  if (persist) {
+    localStorage.setItem(themeStorageKey, normalizedMode);
+  }
+};
+
+const initTheme = () => {
+  const storedMode = normalizeThemeMode(localStorage.getItem(themeStorageKey));
+  applyThemeMode(storedMode);
 };
 
 const slugifySegment = (value) =>
@@ -367,8 +422,59 @@ closeArticleBtn.addEventListener('click', () => {
   navigate('#/');
 });
 
+const setThemeMenuState = (switcher, isOpen) => {
+  switcher.classList.toggle('is-open', isOpen);
+  const trigger = switcher.querySelector('[data-theme-trigger]');
+  if (trigger) {
+    trigger.setAttribute('aria-expanded', isOpen);
+  }
+};
+
+const closeThemeMenus = () => {
+  let closed = false;
+  themeSwitchers.forEach((switcher) => {
+    if (switcher.classList.contains('is-open')) {
+      setThemeMenuState(switcher, false);
+      closed = true;
+    }
+  });
+  return closed;
+};
+
+themeSwitchers.forEach((switcher) => {
+  const trigger = switcher.querySelector('[data-theme-trigger]');
+  const options = Array.from(switcher.querySelectorAll('[data-theme-option]'));
+
+  if (trigger) {
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const isOpen = switcher.classList.contains('is-open');
+      closeThemeMenus();
+      setThemeMenuState(switcher, !isOpen);
+    });
+  }
+
+  options.forEach((option) => {
+    option.addEventListener('click', (event) => {
+      event.stopPropagation();
+      applyThemeMode(option.dataset.themeOption, { persist: true });
+      closeThemeMenus();
+    });
+  });
+});
+
+document.addEventListener('click', (event) => {
+  const clickedSwitcher = themeSwitchers.some((switcher) => switcher.contains(event.target));
+  if (!clickedSwitcher) {
+    closeThemeMenus();
+  }
+});
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    if (closeThemeMenus()) {
+      return;
+    }
     if (state.view === 'article' || state.view === 'about') {
       navigate('#/');
     }
@@ -392,4 +498,5 @@ const init = async () => {
 };
 
 window.addEventListener('hashchange', handleRoute);
+initTheme();
 init();
