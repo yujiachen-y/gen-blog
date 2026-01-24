@@ -9,6 +9,7 @@
   --card-bg: transparent;
   --card-bg-hover: #fff;
   --card-border: rgba(0, 0, 0, 0.08);
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   --card-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.04);
 
   --nav-divider: rgba(0, 0, 0, 0.12);
@@ -43,6 +44,7 @@
   --card-bg: transparent;
   --card-bg-hover: #1c1c1c;
   --card-border: rgba(255, 255, 255, 0.12);
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   --card-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.2);
 
   --nav-divider: rgba(255, 255, 255, 0.12);
@@ -70,6 +72,7 @@
     --card-bg: transparent;
     --card-bg-hover: #1c1c1c;
     --card-border: rgba(255, 255, 255, 0.12);
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     --card-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.2);
 
     --nav-divider: rgba(255, 255, 255, 0.12);
@@ -335,7 +338,6 @@ body {
 .article-controls {
   position: fixed;
   top: 2rem;
-  left: 5%;
   right: 5%;
   max-width: 1400px;
   margin: 0 auto;
@@ -403,11 +405,11 @@ body.view-article .navbar .action-controls {
 /* List Item (formerly Card) */
 /* List Item */
 .card {
-  background: var(--card-bg);
+  background: var(--card-bg-hover);
   border-radius: 16px;
   padding: 2.5rem 2rem;
   /* Add horizontal breathing room */
-  box-shadow: none;
+  box-shadow: var(--card-shadow);
   cursor: pointer;
   display: flex;
   flex-direction: row;
@@ -416,23 +418,20 @@ body.view-article .navbar .action-controls {
   min-height: auto;
   height: auto;
   border: none;
-  border-bottom: 1px solid var(--card-border);
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
   position: relative;
   overflow: visible;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .card:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .card:hover {
-  background: var(--card-bg-hover);
   transform: scale(1.02);
   box-shadow: var(--card-shadow-hover);
   opacity: 1;
-  border-color: transparent;
   z-index: 10;
 }
 
@@ -521,7 +520,7 @@ body.view-article .navbar .action-controls {
 
 /* Normalized List Item with Image - Remove old overrides */
 .card.has-image {
-  background: transparent;
+  background: var(--card-bg-hover);
   /* Consistent with other cards */
   padding: 2.5rem 2rem;
   /* Keep padding consistent */
