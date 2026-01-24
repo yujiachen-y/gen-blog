@@ -9,6 +9,7 @@ const closeArticleBtn = document.getElementById('close-article-btn');
 const articleContent = document.getElementById('article-content');
 const themeSwitchers = Array.from(document.querySelectorAll('[data-theme-switcher]'));
 const langSwitchers = Array.from(document.querySelectorAll('[data-lang-switcher]'));
+let isInitialRoute = true;
 
 const state = {
   posts: [],
@@ -536,13 +537,18 @@ const handleRoute = () => {
 
   const postRoute = parsePostRoute(segments);
   if (postRoute) {
-    openArticleByKey(postRoute.translationKey, postRoute.lang, null, { pushHistory: false });
+    openArticleByKey(postRoute.translationKey, postRoute.lang, null, {
+      pushHistory: false,
+      animate: !isInitialRoute,
+    });
+    isInitialRoute = false;
     return;
   }
 
   closeArticle(false);
   closeAbout(false);
   state.view = 'home';
+  isInitialRoute = false;
 };
 
 navBrand.addEventListener('click', (event) => {
