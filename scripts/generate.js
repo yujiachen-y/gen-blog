@@ -37,9 +37,7 @@ const slugifyPath = (value) =>
     .join('/');
 
 const humanize = (value) =>
-  value
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  value.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
 const formatDate = (value) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -80,99 +78,163 @@ const collectMarkdownFiles = async (dir) => {
   return nested.flat();
 };
 
-const renderLayout = ({ title, cssHref, navPrefix, bodyHtml }) => `<!doctype html>
+const renderLayout = ({
+  title,
+  navPrefix,
+  bodyHtml,
+  filtersHtml = '',
+  controlsHtml = '',
+}) => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
-    <link rel="stylesheet" href="${cssHref}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet">
+    <link rel="stylesheet" href="${navPrefix}styles.css" />
   </head>
   <body>
-    <div class="app">
-      <header class="site-header">
-        <a class="brand" href="${navPrefix}">Gen Blog</a>
-        <nav class="nav">
-          <a href="${navPrefix}">Home</a>
-          <a href="${navPrefix}about/">About</a>
-        </nav>
-      </header>
+    <nav class="navbar">
+      <a class="brand" href="${navPrefix}">Gen Blog</a>
+      <div class="controls">
+        ${filtersHtml}
+        <div class="nav-divider"></div>
+        ${controlsHtml}
+      </div>
+    </nav>
 
-      <main class="view">
-        ${bodyHtml}
-      </main>
-
-      <footer class="site-footer">
-        <span>Generated from markdown</span>
-      </footer>
-    </div>
+    ${bodyHtml}
   </body>
 </html>`;
 
-const renderIndex = (posts) => {
-  const cards = posts
-    .map(
-      (post) => `
-        <article class="post-card">
-          <div class="post-meta">${escapeHtml(post.date)} · ${escapeHtml(
-        post.category
-      )}</div>
-          <h2>${escapeHtml(post.title)}</h2>
-          <p>${escapeHtml(post.excerpt)}</p>
-          <a href="./posts/${post.slug}/" aria-label="Read ${escapeHtml(
-        post.title
-      )}">Read more →</a>
-        </article>
-      `
+const buildFilterPills = (categories, navPrefix, activeSlug) => {
+  const pill = ({ label, href, slug }) => `
+    <a class="filter-pill${slug === activeSlug ? ' active' : ''}" href="${href}">
+      ${escapeHtml(label)}
+    </a>
+  `;
+
+  const allPill = pill({
+    label: 'All',
+    slug: 'all',
+    href: `${navPrefix}`,
+  });
+
+  const categoryPills = categories
+    .map((category) =>
+      pill({
+        label: category.name,
+        slug: category.slug,
+        href: `${navPrefix}categories/${category.slug}/`,
+      })
     )
     .join('');
 
+  return `<div class="filter-pills">${allPill}${categoryPills}</div>`;
+};
+
+const renderCard = (post, navPrefix) => {
+  const coverHtml = post.cover
+    ? `<img class="card-image" src="${navPrefix}${post.cover}" alt="${escapeHtml(post.title)}" />`
+    : '';
+  const cardClass = post.cover ? 'card has-image' : 'card';
+
+  return `
+    <a class="${cardClass}" href="${navPrefix}posts/${post.slug}/">
+      <div class="card-content-wrapper">
+        <div class="card-date">${escapeHtml(post.date)} · ${escapeHtml(
+          post.category.toUpperCase()
+        )}</div>
+        <div class="card-title">${escapeHtml(post.title)}</div>
+        <div class="card-excerpt">${escapeHtml(post.excerpt)}</div>
+      </div>
+      ${coverHtml}
+    </a>
+  `;
+};
+
+const renderIndex = (posts, categories) => {
+  const cards = posts.map((post) => renderCard(post, './')).join('');
+
   return renderLayout({
     title: 'Gen Blog',
-    cssHref: './styles.css',
     navPrefix: './',
+    filtersHtml: buildFilterPills(categories, './', 'all'),
+    controlsHtml: `<a class="btn-text" href="./about/">About</a>`,
     bodyHtml: `
-        <section class="hero">
-          <h1>Gen Blog</h1>
-          <p>Static pages generated from markdown.</p>
-        </section>
-        <section class="post-list">${cards}</section>
-      `
+      <main class="grid-container">
+        ${cards}
+      </main>
+    `,
   });
 };
 
-const renderAbout = () =>
+const renderCategoryPage = (category, posts, categories) => {
+  const cards = posts.map((post) => renderCard(post, '../../')).join('');
+
+  return renderLayout({
+    title: `${category.name} · Gen Blog`,
+    navPrefix: '../../',
+    filtersHtml: buildFilterPills(categories, '../../', category.slug),
+    controlsHtml: `<a class="btn-text" href="../../about/">About</a>`,
+    bodyHtml: `
+      <main class="grid-container">
+        ${cards}
+      </main>
+    `,
+  });
+};
+
+const renderAbout = (categories) =>
   renderLayout({
     title: 'About · Gen Blog',
-    cssHref: '../styles.css',
     navPrefix: '../',
+    filtersHtml: buildFilterPills(categories, '../', 'all'),
+    controlsHtml: `<a class="btn-text" href="../about/">About</a>`,
     bodyHtml: `
-      <section class="hero">
-        <h1>About</h1>
-        <p>This is a generated static blog page using the demo style.</p>
-      </section>
-    `
+      <main class="article-content">
+        <div class="article-text-content">
+          <h1 class="article-hero">About</h1>
+          <div class="article-body">
+            <p>This is a generated static blog using the Spatial Hubble style.</p>
+            <p>Replace this copy with your own bio or site description.</p>
+          </div>
+        </div>
+      </main>
+    `,
   });
 
-const renderPost = (post) => {
+const renderPost = (post, categories) => {
   const depth = post.slug.split('/').filter(Boolean).length + 1;
   const navPrefix = '../'.repeat(depth);
-  const cssHref = `${navPrefix}styles.css`;
+  const coverHtml = post.cover
+    ? `<div class="article-cover">
+         <img src="${navPrefix}${post.cover}" alt="${escapeHtml(post.title)}" />
+         <div class="article-cover-overlay"></div>
+       </div>`
+    : '';
 
   return renderLayout({
     title: `${post.title} · Gen Blog`,
-    cssHref,
     navPrefix,
+    filtersHtml: buildFilterPills(categories, navPrefix, 'all'),
+    controlsHtml: `<a class="btn-text" href="${navPrefix}about/">About</a>`,
     bodyHtml: `
-      <article class="article">
-        <a class="back-link" href="${navPrefix}">← Back to home</a>
-        <div class="post-meta">${escapeHtml(post.date)} · ${escapeHtml(
-      post.category
-    )}</div>
-        <h1>${escapeHtml(post.title)}</h1>
-        ${post.html}
-      </article>
-    `
+      <main class="article-content">
+        ${coverHtml}
+        <div class="article-text-content">
+          <div class="article-meta">${escapeHtml(post.date)} · ${escapeHtml(
+            post.category.toUpperCase()
+          )}</div>
+          <h1 class="article-hero">${escapeHtml(post.title)}</h1>
+          <div class="article-body">${post.html}</div>
+        </div>
+      </main>
+    `,
   });
 };
 
@@ -194,20 +256,17 @@ const loadPosts = async () => {
       const slugSource = data.slug ? String(data.slug) : withoutExt;
       const slug = slugifyPath(slugSource);
       const stat = await fs.stat(filePath);
-      const date =
-        formatDate(data.date) ?? formatDate(stat.mtime) ?? '1970-01-01';
+      const date = formatDate(data.date) ?? formatDate(stat.mtime) ?? '1970-01-01';
       const contentTitleMatch = content.match(/^#\s+(.+)$/m);
       const title =
         (data.title ? String(data.title) : null) ||
         (contentTitleMatch ? contentTitleMatch[1].trim() : null) ||
         humanize(path.basename(withoutExt));
       const category =
-        (data.category ? String(data.category) : null) ||
-        slug.split('/')[0] ||
-        'General';
-      const excerpt =
-        (data.excerpt ? String(data.excerpt) : null) || buildExcerpt(content);
+        (data.category ? String(data.category) : null) || slug.split('/')[0] || 'General';
+      const excerpt = (data.excerpt ? String(data.excerpt) : null) || buildExcerpt(content);
       const html = marked.parse(content);
+      const cover = data.coverImage || data.cover || null;
 
       return {
         slug,
@@ -215,7 +274,8 @@ const loadPosts = async () => {
         date,
         category,
         excerpt,
-        html
+        html,
+        cover: cover ? String(cover) : null,
       };
     })
   );
@@ -223,8 +283,7 @@ const loadPosts = async () => {
   return posts.filter((post) => post.slug.length > 0);
 };
 
-const writeFile = (filePath, contents) =>
-  fs.writeFile(filePath, contents, 'utf8');
+const writeFile = (filePath, contents) => fs.writeFile(filePath, contents, 'utf8');
 
 const run = async () => {
   await ensureDir(outputDir);
@@ -241,15 +300,43 @@ const run = async () => {
     return bTime - aTime;
   });
 
-  await writeFile(path.join(outputDir, 'index.html'), renderIndex(sortedPosts));
+  const categoriesMap = sortedPosts.reduce((acc, post) => {
+    const slug = slugifySegment(post.category);
+    if (!slug) {
+      return acc;
+    }
+    const entry = acc.get(slug) ?? { slug, name: post.category, posts: [] };
+    entry.posts.push(post);
+    acc.set(slug, entry);
+    return acc;
+  }, new Map());
+
+  const categories = Array.from(categoriesMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  await writeFile(path.join(outputDir, 'index.html'), renderIndex(sortedPosts, categories));
   await ensureDir(path.join(outputDir, 'about'));
-  await writeFile(path.join(outputDir, 'about', 'index.html'), renderAbout());
+  await writeFile(path.join(outputDir, 'about', 'index.html'), renderAbout(categories));
+
+  if (categories.length > 0) {
+    await Promise.all(
+      categories.map(async (category) => {
+        const categoryDir = path.join(outputDir, 'categories', category.slug);
+        await ensureDir(categoryDir);
+        await writeFile(
+          path.join(categoryDir, 'index.html'),
+          renderCategoryPage(category, category.posts, categories)
+        );
+      })
+    );
+  }
 
   await Promise.all(
     sortedPosts.map(async (post) => {
       const postDir = path.join(outputDir, 'posts', post.slug);
       await ensureDir(postDir);
-      await writeFile(path.join(postDir, 'index.html'), renderPost(post));
+      await writeFile(path.join(postDir, 'index.html'), renderPost(post, categories));
     })
   );
 
