@@ -142,6 +142,12 @@ body {
   background: var(--nav-divider);
 }
 
+.filter-bar {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 5% 0.5rem;
+}
+
 .btn-text {
   background: none;
   border: none;
@@ -760,5 +766,115 @@ body.view-article .navbar .action-controls {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .navbar {
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.75rem 5% 1.25rem;
+  }
+
+  .filter-bar {
+    padding: 0 5% 0.25rem;
+  }
+
+  .article-content {
+    margin-top: 5rem;
+    padding: 0 1.5rem;
+  }
+
+  .article-hero {
+    font-size: 2.2rem;
+  }
+
+  .about-hero {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    padding: 1.5rem 5% 1rem;
+  }
+
+  .filter-bar {
+    padding: 0 5% 0.5rem;
+  }
+
+  .filter-pills {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 0.25rem;
+  }
+
+  .filter-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .action-controls {
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .action-controls .about-trigger {
+    margin-right: 0.25rem;
+  }
+
+  .grid-container {
+    padding: 1.5rem 6% 3rem;
+  }
+
+  .card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.75rem 1.5rem;
+  }
+
+  .card-content-wrapper {
+    padding-right: 0;
+  }
+
+  .card-image {
+    width: 100%;
+    height: 180px;
+    margin: 1rem 0 0;
+  }
+
+  .close-btn {
+    top: 1rem;
+    left: 1rem;
+    padding: 0.6rem 0.8rem;
+  }
+
+  .close-btn .back-text {
+    display: none;
+  }
+
+  .article-content {
+    margin: 3.5rem auto 3rem;
+    padding: 0 1.25rem;
+  }
+
+  .article-hero {
+    font-size: 1.9rem;
+  }
+
+  .about-content {
+    padding: 1.5rem;
+  }
+
+  .about-hero {
+    font-size: 2.1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .about-body {
+    font-size: 1.05rem;
   }
 }
