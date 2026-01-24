@@ -1,7 +1,7 @@
 const grid = document.getElementById('grid-container');
 const filterPills = document.getElementById('filter-pills');
 const navBrand = document.getElementById('nav-brand');
-const aboutBtn = document.getElementById('about-btn');
+const aboutTriggers = Array.from(document.querySelectorAll('[data-about-trigger]'));
 const aboutView = document.getElementById('about-view');
 const closeAboutBtn = document.getElementById('close-about-btn');
 const articleView = document.getElementById('article-view');
@@ -550,8 +550,10 @@ navBrand.addEventListener('click', (event) => {
   navigate('#/');
 });
 
-aboutBtn.addEventListener('click', () => {
-  navigate('#/about');
+aboutTriggers.forEach((trigger) => {
+  trigger.addEventListener('click', () => {
+    navigate('#/about');
+  });
 });
 
 closeAboutBtn.addEventListener('click', () => {

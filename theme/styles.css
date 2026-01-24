@@ -126,6 +126,16 @@ body {
   gap: 1.5rem;
 }
 
+.action-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.action-controls .about-trigger {
+  margin-right: 0.4rem;
+}
+
 .nav-divider {
   width: 1px;
   height: 1.5rem;
@@ -334,8 +344,7 @@ body {
   right: 0;
 }
 
-body.view-article .navbar .lang-switcher,
-body.view-article .navbar .theme-switcher {
+body.view-article .navbar .action-controls {
   display: none;
 }
 
