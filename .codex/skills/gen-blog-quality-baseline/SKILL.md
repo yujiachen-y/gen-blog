@@ -7,7 +7,7 @@ description: Evaluate gen-blog output quality and regression risk by measuring d
 
 ## Overview
 
-Run a lightweight quality check against `dist/` after `npm run generate` to spot early regressions in payload size, post index growth, and cover image bloat.
+Run a lightweight quality check against `dist/` after `npm run generate` to spot early regressions in payload size, HTML growth, and image bloat.
 
 ## Workflow
 
@@ -32,10 +32,11 @@ Optional overrides:
 ```
 node .codex/skills/gen-blog-quality-baseline/scripts/quality_baseline.js \
   --dist dist \
-  --max-index-mb 2 \
   --max-home-kb 1024 \
   --max-total-mb 50 \
-  --max-cover-kb 600
+  --max-cover-kb 600 \
+  --max-html-mb 15 \
+  --max-page-kb 400
 ```
 
 Use JSON output for machine parsing:
@@ -46,8 +47,8 @@ node .codex/skills/gen-blog-quality-baseline/scripts/quality_baseline.js --dist 
 
 ### 3) Interpret results
 
-- **Failures** indicate hard regressions (e.g., missing `posts/index.json`, oversized index).
-- **Warnings** indicate growing performance risk (home payload, total dist size, oversized covers).
+- **Failures** indicate hard regressions (e.g., missing `index.html`, oversized post index).
+- **Warnings** indicate growing performance risk (home payload, HTML total, oversized images).
 - Use the thresholds as a starting point; tune once real usage data is available.
 
 ### 4) Fix warnings quickly

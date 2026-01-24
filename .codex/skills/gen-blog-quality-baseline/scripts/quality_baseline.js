@@ -20,6 +20,8 @@ const maxIndexMb = Number(getArgValue('--max-index-mb', '2'));
 const maxTotalMb = Number(getArgValue('--max-total-mb', '50'));
 const maxHomeKb = Number(getArgValue('--max-home-kb', '1024'));
 const maxCoverKb = Number(getArgValue('--max-cover-kb', '600'));
+const maxHtmlMb = Number(getArgValue('--max-html-mb', '15'));
+const maxPageKb = Number(getArgValue('--max-page-kb', '400'));
 const warnOnly = hasFlag('--warn-only');
 const jsonOutput = hasFlag('--json');
 
@@ -64,6 +66,14 @@ const loadJson = async (filePath) => {
   return JSON.parse(raw);
 };
 
+const loadJsonIfExists = async (filePath) => {
+  try {
+    return await loadJson(filePath);
+  } catch (error) {
+    return null;
+  }
+};
+
 const getFileSize = async (filePath) => {
   try {
     const stat = await fs.stat(filePath);
@@ -73,15 +83,16 @@ const getFileSize = async (filePath) => {
   }
 };
 
-const resolveCoverPath = (coverImage, distRoot) => {
-  if (!coverImage) {
+const getPercentile = (values, percentile) => {
+  if (!values.length) {
     return null;
   }
-  if (/^https?:\/\//i.test(coverImage)) {
-    return null;
-  }
-  return path.join(distRoot, coverImage);
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.min(sorted.length - 1, Math.floor(percentile * (sorted.length - 1)));
+  return sorted[index];
 };
+
+const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif']);
 
 const run = async () => {
   const result = {
@@ -91,6 +102,8 @@ const run = async () => {
       maxTotalMb,
       maxHomeKb,
       maxCoverKb,
+      maxHtmlMb,
+      maxPageKb,
     },
     stats: {},
     warnings: [],
@@ -107,51 +120,39 @@ const run = async () => {
     path.join(distDir, 'index.html'),
     path.join(distDir, 'app.js'),
     path.join(distDir, 'styles.css'),
-    indexJsonPath,
   ];
 
   const homeSizes = await Promise.all(homeFiles.map((file) => getFileSize(file)));
   const homeBytes = homeSizes.filter((size) => size !== null).reduce((sum, size) => sum + size, 0);
 
-  let posts = [];
-  if (indexJsonSize === null) {
-    result.failures.push('Missing dist/posts/index.json');
-  } else {
-    posts = await loadJson(indexJsonPath);
-  }
+  const indexJson = indexJsonSize === null ? null : await loadJsonIfExists(indexJsonPath);
+  const postCount = Array.isArray(indexJson) ? indexJson.length : null;
 
-  const postCount = Array.isArray(posts) ? posts.length : 0;
-  const coverEntries = Array.isArray(posts) ? posts.filter((post) => post.coverImage) : [];
-
-  const coverChecks = await Promise.all(
-    coverEntries.map(async (post) => {
-      const resolved = resolveCoverPath(post.coverImage, distDir);
-      if (!resolved) {
-        return { slug: post.slug, coverImage: post.coverImage, size: null };
-      }
-      const size = await getFileSize(resolved);
-      return { slug: post.slug, coverImage: post.coverImage, size };
-    })
+  const htmlFiles = files.filter((file) => file.path.toLowerCase().endsWith('.html'));
+  const pageHtmlFiles = htmlFiles.filter(
+    (file) => path.relative(distDir, file.path) !== 'index.html'
   );
+  const pageHtmlSizes = pageHtmlFiles.map((file) => file.size);
+  const pageHtmlMaxBytes = pageHtmlSizes.length ? Math.max(...pageHtmlSizes) : 0;
+  const pageHtmlAvgBytes = pageHtmlSizes.length
+    ? Math.round(pageHtmlSizes.reduce((sum, size) => sum + size, 0) / pageHtmlSizes.length)
+    : 0;
+  const pageHtmlP95Bytes = getPercentile(pageHtmlSizes, 0.95);
+  const htmlTotalBytes = htmlFiles.reduce((sum, file) => sum + file.size, 0);
 
-  const missingCovers = coverChecks.filter(
-    (entry) => entry.coverImage && entry.size === null && !/^https?:/i.test(entry.coverImage)
+  const imageFiles = files.filter((file) =>
+    imageExtensions.has(path.extname(file.path).toLowerCase())
   );
-
-  const oversizedCovers = coverChecks.filter(
-    (entry) => entry.size !== null && entry.size > toKbBytes(maxCoverKb)
-  );
-
-  if (missingCovers.length > 0) {
-    result.failures.push(
-      `Missing cover files: ${missingCovers.map((c) => c.coverImage).join(', ')}`
-    );
-  }
+  const oversizedImages = imageFiles.filter((file) => file.size > toKbBytes(maxCoverKb));
 
   if (indexJsonSize !== null && indexJsonSize > toBytes(maxIndexMb)) {
     result.failures.push(
       `posts/index.json exceeds ${maxIndexMb} MB (${formatBytes(indexJsonSize)})`
     );
+  }
+
+  if (homeSizes[0] === null) {
+    result.failures.push('Missing dist/index.html');
   }
 
   if (homeBytes > toKbBytes(maxHomeKb)) {
@@ -162,10 +163,18 @@ const run = async () => {
     result.warnings.push(`dist size exceeds ${maxTotalMb} MB (${formatBytes(totalBytes)})`);
   }
 
-  if (oversizedCovers.length > 0) {
+  if (htmlTotalBytes > toBytes(maxHtmlMb)) {
+    result.warnings.push(`HTML total exceeds ${maxHtmlMb} MB (${formatBytes(htmlTotalBytes)})`);
+  }
+
+  if (pageHtmlMaxBytes > toKbBytes(maxPageKb)) {
+    result.warnings.push(`Largest page exceeds ${maxPageKb} KB (${formatBytes(pageHtmlMaxBytes)})`);
+  }
+
+  if (oversizedImages.length > 0) {
     result.warnings.push(
-      `Covers above ${maxCoverKb} KB: ${oversizedCovers
-        .map((entry) => `${entry.coverImage} (${formatBytes(entry.size)})`)
+      `Images above ${maxCoverKb} KB: ${oversizedImages
+        .map((entry) => `${path.relative(distDir, entry.path)} (${formatBytes(entry.size)})`)
         .join(', ')}`
     );
   }
@@ -183,7 +192,12 @@ const run = async () => {
     totalBytes,
     homeBytes,
     indexJsonSize,
-    coverCount: coverEntries.length,
+    htmlPageCount: pageHtmlFiles.length,
+    htmlTotalBytes,
+    pageHtmlMaxBytes,
+    pageHtmlAvgBytes,
+    pageHtmlP95Bytes,
+    imageCount: imageFiles.length,
     largestAssets,
   };
 
@@ -192,11 +206,15 @@ const run = async () => {
   } else {
     console.log('Gen Blog Quality Baseline');
     console.log(`Dist: ${distDir}`);
-    console.log(`Posts: ${postCount}`);
+    console.log(`Posts: ${postCount ?? 'n/a'}`);
     console.log(`Total size: ${formatBytes(totalBytes)}`);
     console.log(`Home payload: ${formatBytes(homeBytes)}`);
     console.log(`posts/index.json: ${formatBytes(indexJsonSize)}`);
-    console.log(`Covers: ${coverEntries.length}`);
+    console.log(`HTML pages: ${pageHtmlFiles.length}`);
+    console.log(`HTML total: ${formatBytes(htmlTotalBytes)}`);
+    console.log(`Largest page: ${formatBytes(pageHtmlMaxBytes)}`);
+    console.log(`P95 page size: ${formatBytes(pageHtmlP95Bytes)}`);
+    console.log(`Images: ${imageFiles.length}`);
     console.log('Largest assets:');
     largestAssets.forEach((asset) => {
       console.log(`  - ${asset.path} (${formatBytes(asset.size)})`);
