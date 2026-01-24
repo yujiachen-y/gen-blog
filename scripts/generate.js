@@ -52,6 +52,40 @@ const buildExcerpt = (content) => {
   return stripped.length > 160 ? `${stripped.slice(0, 157)}...` : stripped;
 };
 
+const normalizeTitle = (value) => value.trim().toLowerCase().replace(/\s+/g, ' ');
+
+const extractFirstHeading = (content) => {
+  const match = content.match(/^#\s+(.+)$/m);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    text: match[1].trim(),
+    index: match.index ?? 0,
+    line: match[0],
+  };
+};
+
+const stripFirstHeading = (content, heading) => {
+  if (!heading) {
+    return content;
+  }
+
+  const before = content.slice(0, heading.index);
+  let after = content.slice(heading.index + heading.line.length);
+
+  if (after.startsWith('\r\n')) {
+    after = after.slice(2);
+  } else if (after.startsWith('\n')) {
+    after = after.slice(1);
+  }
+
+  after = after.replace(/^\s*\r?\n/, '');
+
+  return `${before}${after}`;
+};
+
 const collectMarkdownFiles = async (dir) => {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const nested = await Promise.all(
@@ -123,16 +157,19 @@ const loadPosts = async () => {
       const slug = slugifyPath(slugSource);
       const stat = await fs.stat(filePath);
       const date = formatDate(data.date) ?? formatDate(stat.mtime) ?? '1970-01-01';
-      const contentTitleMatch = content.match(/^#\s+(.+)$/m);
+      const heading = extractFirstHeading(content);
+      const frontmatterTitle = data.title ? String(data.title) : null;
       const title =
-        (data.title ? String(data.title) : null) ||
-        (contentTitleMatch ? contentTitleMatch[1].trim() : null) ||
-        humanize(path.basename(withoutExt));
+        frontmatterTitle || (heading ? heading.text : null) || humanize(path.basename(withoutExt));
+      const shouldStripHeading =
+        heading &&
+        (!frontmatterTitle || normalizeTitle(heading.text) === normalizeTitle(frontmatterTitle));
+      const contentForHtml = shouldStripHeading ? stripFirstHeading(content, heading) : content;
       const category =
         (data.category ? String(data.category) : null) || slug.split('/')[0] || 'General';
       const categorySlug = slugifySegment(category);
-      const excerpt = (data.excerpt ? String(data.excerpt) : null) || buildExcerpt(content);
-      const html = marked.parse(content);
+      const excerpt = (data.excerpt ? String(data.excerpt) : null) || buildExcerpt(contentForHtml);
+      const html = marked.parse(contentForHtml);
       const cover = data.coverImage || data.cover || null;
 
       return {
