@@ -14,14 +14,6 @@ const inputDir = path.resolve(inputArg);
 const outputDir = path.resolve(outputArg ?? 'dist');
 const themeDir = path.resolve('theme');
 
-const escapeHtml = (value) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
 const slugifySegment = (value) =>
   value
     .toLowerCase()
@@ -78,167 +70,10 @@ const collectMarkdownFiles = async (dir) => {
   return nested.flat();
 };
 
-const renderLayout = ({
-  title,
-  navPrefix,
-  bodyHtml,
-  filtersHtml = '',
-  controlsHtml = '',
-}) => `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(title)}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap"
-      rel="stylesheet">
-    <link rel="stylesheet" href="${navPrefix}styles.css" />
-  </head>
-  <body>
-    <nav class="navbar">
-      <a class="brand" href="${navPrefix}">Gen Blog</a>
-      <div class="controls">
-        ${filtersHtml}
-        <div class="nav-divider"></div>
-        ${controlsHtml}
-      </div>
-    </nav>
-
-    ${bodyHtml}
-  </body>
-</html>`;
-
-const buildFilterPills = (categories, navPrefix, activeSlug) => {
-  const pill = ({ label, href, slug }) => `
-    <a class="filter-pill${slug === activeSlug ? ' active' : ''}" href="${href}">
-      ${escapeHtml(label)}
-    </a>
-  `;
-
-  const allPill = pill({
-    label: 'All',
-    slug: 'all',
-    href: `${navPrefix}`,
-  });
-
-  const categoryPills = categories
-    .map((category) =>
-      pill({
-        label: category.name,
-        slug: category.slug,
-        href: `${navPrefix}categories/${category.slug}/`,
-      })
-    )
-    .join('');
-
-  return `<div class="filter-pills">${allPill}${categoryPills}</div>`;
-};
-
-const renderCard = (post, navPrefix) => {
-  const coverHtml = post.cover
-    ? `<img class="card-image" src="${navPrefix}${post.cover}" alt="${escapeHtml(post.title)}" />`
-    : '';
-  const cardClass = post.cover ? 'card has-image' : 'card';
-
-  return `
-    <a class="${cardClass}" href="${navPrefix}posts/${post.slug}/">
-      <div class="card-content-wrapper">
-        <div class="card-date">${escapeHtml(post.date)} · ${escapeHtml(
-          post.category.toUpperCase()
-        )}</div>
-        <div class="card-title">${escapeHtml(post.title)}</div>
-        <div class="card-excerpt">${escapeHtml(post.excerpt)}</div>
-      </div>
-      ${coverHtml}
-    </a>
-  `;
-};
-
-const renderIndex = (posts, categories) => {
-  const cards = posts.map((post) => renderCard(post, './')).join('');
-
-  return renderLayout({
-    title: 'Gen Blog',
-    navPrefix: './',
-    filtersHtml: buildFilterPills(categories, './', 'all'),
-    controlsHtml: `<a class="btn-text" href="./about/">About</a>`,
-    bodyHtml: `
-      <main class="grid-container">
-        ${cards}
-      </main>
-    `,
-  });
-};
-
-const renderCategoryPage = (category, posts, categories) => {
-  const cards = posts.map((post) => renderCard(post, '../../')).join('');
-
-  return renderLayout({
-    title: `${category.name} · Gen Blog`,
-    navPrefix: '../../',
-    filtersHtml: buildFilterPills(categories, '../../', category.slug),
-    controlsHtml: `<a class="btn-text" href="../../about/">About</a>`,
-    bodyHtml: `
-      <main class="grid-container">
-        ${cards}
-      </main>
-    `,
-  });
-};
-
-const renderAbout = (categories) =>
-  renderLayout({
-    title: 'About · Gen Blog',
-    navPrefix: '../',
-    filtersHtml: buildFilterPills(categories, '../', 'all'),
-    controlsHtml: `<a class="btn-text" href="../about/">About</a>`,
-    bodyHtml: `
-      <main class="article-content">
-        <div class="article-text-content">
-          <h1 class="article-hero">About</h1>
-          <div class="article-body">
-            <p>This is a generated static blog using the Spatial Hubble style.</p>
-            <p>Replace this copy with your own bio or site description.</p>
-          </div>
-        </div>
-      </main>
-    `,
-  });
-
-const renderPost = (post, categories) => {
-  const depth = post.slug.split('/').filter(Boolean).length + 1;
-  const navPrefix = '../'.repeat(depth);
-  const coverHtml = post.cover
-    ? `<div class="article-cover">
-         <img src="${navPrefix}${post.cover}" alt="${escapeHtml(post.title)}" />
-         <div class="article-cover-overlay"></div>
-       </div>`
-    : '';
-
-  return renderLayout({
-    title: `${post.title} · Gen Blog`,
-    navPrefix,
-    filtersHtml: buildFilterPills(categories, navPrefix, 'all'),
-    controlsHtml: `<a class="btn-text" href="${navPrefix}about/">About</a>`,
-    bodyHtml: `
-      <main class="article-content">
-        ${coverHtml}
-        <div class="article-text-content">
-          <div class="article-meta">${escapeHtml(post.date)} · ${escapeHtml(
-            post.category.toUpperCase()
-          )}</div>
-          <h1 class="article-hero">${escapeHtml(post.title)}</h1>
-          <div class="article-body">${post.html}</div>
-        </div>
-      </main>
-    `,
-  });
-};
-
 const ensureDir = (dir) => fs.mkdir(dir, { recursive: true });
+
+const writeJson = (filePath, data) =>
+  fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 
 const loadPosts = async () => {
   const files = await collectMarkdownFiles(inputDir);
@@ -264,6 +99,7 @@ const loadPosts = async () => {
         humanize(path.basename(withoutExt));
       const category =
         (data.category ? String(data.category) : null) || slug.split('/')[0] || 'General';
+      const categorySlug = slugifySegment(category);
       const excerpt = (data.excerpt ? String(data.excerpt) : null) || buildExcerpt(content);
       const html = marked.parse(content);
       const cover = data.coverImage || data.cover || null;
@@ -273,9 +109,10 @@ const loadPosts = async () => {
         title,
         date,
         category,
+        categorySlug,
         excerpt,
-        html,
-        cover: cover ? String(cover) : null,
+        content: html,
+        coverImage: cover ? String(cover) : null,
       };
     })
   );
@@ -283,15 +120,17 @@ const loadPosts = async () => {
   return posts.filter((post) => post.slug.length > 0);
 };
 
-const writeFile = (filePath, contents) => fs.writeFile(filePath, contents, 'utf8');
+const copyThemeAssets = async () => {
+  await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(outputDir, 'styles.css'));
+  await fs.copyFile(path.join(themeDir, 'index.html'), path.join(outputDir, 'index.html'));
+  await fs.copyFile(path.join(themeDir, 'app.js'), path.join(outputDir, 'app.js'));
+};
 
 const run = async () => {
   await ensureDir(outputDir);
   await ensureDir(path.join(outputDir, 'posts'));
 
-  const cssSource = path.join(themeDir, 'styles.css');
-  const cssTarget = path.join(outputDir, 'styles.css');
-  await fs.copyFile(cssSource, cssTarget);
+  await copyThemeAssets();
 
   const posts = await loadPosts();
   const sortedPosts = [...posts].sort((a, b) => {
@@ -300,43 +139,32 @@ const run = async () => {
     return bTime - aTime;
   });
 
-  const categoriesMap = sortedPosts.reduce((acc, post) => {
-    const slug = slugifySegment(post.category);
-    if (!slug) {
-      return acc;
-    }
-    const entry = acc.get(slug) ?? { slug, name: post.category, posts: [] };
-    entry.posts.push(post);
-    acc.set(slug, entry);
-    return acc;
-  }, new Map());
+  const indexPayload = sortedPosts.map((post) => ({
+    slug: post.slug,
+    title: post.title,
+    date: post.date,
+    category: post.category,
+    categorySlug: post.categorySlug,
+    excerpt: post.excerpt,
+    coverImage: post.coverImage,
+  }));
 
-  const categories = Array.from(categoriesMap.values()).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  await writeFile(path.join(outputDir, 'index.html'), renderIndex(sortedPosts, categories));
-  await ensureDir(path.join(outputDir, 'about'));
-  await writeFile(path.join(outputDir, 'about', 'index.html'), renderAbout(categories));
-
-  if (categories.length > 0) {
-    await Promise.all(
-      categories.map(async (category) => {
-        const categoryDir = path.join(outputDir, 'categories', category.slug);
-        await ensureDir(categoryDir);
-        await writeFile(
-          path.join(categoryDir, 'index.html'),
-          renderCategoryPage(category, category.posts, categories)
-        );
-      })
-    );
-  }
+  await writeJson(path.join(outputDir, 'posts', 'index.json'), indexPayload);
 
   await Promise.all(
     sortedPosts.map(async (post) => {
-      const postDir = path.join(outputDir, 'posts', post.slug);
-      await ensureDir(postDir);
-      await writeFile(path.join(postDir, 'index.html'), renderPost(post, categories));
+      const detailPath = path.join(outputDir, 'posts', `${post.slug}.json`);
+      await ensureDir(path.dirname(detailPath));
+      await writeJson(detailPath, {
+        slug: post.slug,
+        title: post.title,
+        date: post.date,
+        category: post.category,
+        categorySlug: post.categorySlug,
+        excerpt: post.excerpt,
+        coverImage: post.coverImage,
+        content: post.content,
+      });
     })
   );
 
