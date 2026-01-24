@@ -75,6 +75,37 @@ const ensureDir = (dir) => fs.mkdir(dir, { recursive: true });
 const writeJson = (filePath, data) =>
   fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 
+const copyDirectory = async (source, target) => {
+  const entries = await fs.readdir(source, { withFileTypes: true });
+  await ensureDir(target);
+  await Promise.all(
+    entries.map(async (entry) => {
+      const sourcePath = path.join(source, entry.name);
+      const targetPath = path.join(target, entry.name);
+      if (entry.isDirectory()) {
+        await copyDirectory(sourcePath, targetPath);
+        return;
+      }
+      if (entry.isFile()) {
+        await fs.copyFile(sourcePath, targetPath);
+      }
+    })
+  );
+};
+
+const copyDirectoryIfExists = async (source, target) => {
+  try {
+    const stat = await fs.stat(source);
+    if (!stat.isDirectory()) {
+      return;
+    }
+  } catch (error) {
+    return;
+  }
+
+  await copyDirectory(source, target);
+};
+
 const loadPosts = async () => {
   const files = await collectMarkdownFiles(inputDir);
 
@@ -131,6 +162,7 @@ const run = async () => {
   await ensureDir(path.join(outputDir, 'posts'));
 
   await copyThemeAssets();
+  await copyDirectoryIfExists(path.resolve('assets'), path.join(outputDir, 'assets'));
 
   const posts = await loadPosts();
   const sortedPosts = [...posts].sort((a, b) => {
