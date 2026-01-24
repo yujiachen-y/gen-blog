@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gen Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="root">
+      <nav class="navbar">
+        <a href="#/" class="brand" id="nav-brand">Gen Blog</a>
+        <div class="controls">
+          <div id="filter-pills" class="filter-pills"></div>
+          <div class="nav-divider"></div>
+          <button id="about-btn" class="btn-text">About</button>
+        </div>
+      </nav>
+
+      <main id="grid-container" class="grid-container"></main>
+    </div>
+
+    <div id="article-view" class="article-view">
+      <button id="close-article-btn" class="close-btn" aria-label="Close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+        <span class="back-text">Back</span>
+      </button>
+
+      <div id="article-content" class="article-content"></div>
+    </div>
+
+    <div id="about-view" class="about-view">
+      <button id="close-about-btn" class="close-btn" aria-label="Close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+        <span class="back-text">Close</span>
+      </button>
+      <div class="about-content">
+        <h1 class="about-hero">Hi, I'm Chen.</h1>
+        <div class="about-body">
+          <p>I build digital spaces that feel alive. Welcome to my corner of the internet.</p>
+          <p>I'm interested in the intersection of design, technology, and human experience. This blog is a collection of my thoughts on these topics.</p>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

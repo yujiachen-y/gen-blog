@@ -9,4 +9,12 @@ module.exports = {
     sourceType: 'module',
   },
   extends: ['eslint:recommended'],
+  overrides: [
+    {
+      files: ['theme/app.js'],
+      env: {
+        browser: true,
+      },
+    },
+  ],
 };
