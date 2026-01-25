@@ -14,13 +14,23 @@ All published posts must include:
 
 Optional:
 
-- `blog_cover_image`: relative path under `assets/`
+- `blog_cover_image`: local path, external URL, or data URI
 
 Notes:
 
 - If `blog_publish: false`, the post is excluded and other fields are not required.
 - Every `blog_translation_key` must have both `zh` and `en` versions.
 - `blog_category` allows multiple categories. The first item is used as `primaryCategory` in output.
+
+## Image Sources
+
+Allowed image sources (for `blog_cover_image` and Markdown images):
+
+- Local files anywhere in the vault (relative paths preferred)
+- External URLs (`https://` or `http://`)
+- Data URIs (`data:image/...;base64,...`)
+
+The generator copies/normalizes images into `dist/assets` (WebP + compressed fallback) without modifying sources.
 
 ## Translation Key Format
 

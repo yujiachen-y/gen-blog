@@ -29,8 +29,8 @@
 - `Missing zh/en translations for: ...`
   - Ensure each `blog_translation_key` has both `zh` and `en` files.
 
-- `cover image must be local assets/` or `image must live under assets/`
-  - Move images under `<vault>/assets/` and reference via `assets/...` paths.
+## Image Source Tips
 
-- `unsupported image format`
-  - Only `.jpg`, `.jpeg`, `.png` are allowed.
+- Prefer relative paths for local files.
+- For external URLs, ensure the link is reachable and stable.
+- For data URIs, ensure the MIME type matches the content (e.g., `data:image/png;base64,...`).

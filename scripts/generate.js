@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
 import { createMarkdownRenderer } from './markdown.js';
-import { processImage } from './images.js';
+import { processImage, processImageSource } from './images.js';
 
 const args = process.argv.slice(2);
 
@@ -27,8 +27,6 @@ const siteUrl = getArgValue('--site-url', null);
 const inputDir = path.resolve(inputArg);
 const outputDir = path.resolve(outputArg);
 const themeDir = path.resolve('theme');
-const assetsDir = path.join(inputDir, 'assets');
-
 const PAGE_SIZE = 12;
 const SUPPORTED_LANGS = new Set(['zh', 'en']);
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png']);
@@ -137,7 +135,9 @@ const normalizeCategories = (value) => {
   return categories.length > 0 ? categories : null;
 };
 
-const isExternalAsset = (src) => /^https?:\/\//i.test(src) || src.startsWith('data:');
+const isRemoteAsset = (src) => /^https?:\/\//i.test(src);
+const isDataAsset = (src) => src.startsWith('data:');
+const isExternalAsset = (src) => isRemoteAsset(src) || isDataAsset(src);
 
 const resolveLocalAsset = (src, filePath) => {
   if (!src) {
@@ -145,12 +145,10 @@ const resolveLocalAsset = (src, filePath) => {
   }
 
   const trimmed = src.startsWith('/') ? src.slice(1) : src;
-  const isVaultRelative = trimmed.startsWith('assets/') || trimmed.startsWith('assets\\');
-  const resolved =
-    src.startsWith('/') || isVaultRelative
-      ? path.join(inputDir, trimmed)
-      : path.resolve(path.dirname(filePath), trimmed);
-  const relative = path.relative(assetsDir, resolved);
+  const resolved = src.startsWith('/')
+    ? path.join(inputDir, trimmed)
+    : path.resolve(path.dirname(filePath), trimmed);
+  const relative = path.relative(inputDir, resolved);
 
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     return null;
@@ -443,11 +441,17 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
   const resolvedImages = await Promise.all(
     imageSources.map(async (src) => {
       if (isExternalAsset(src)) {
-        return { src, picture: null, external: true };
+        const cacheKey = `external:${src}`;
+        if (!imageCache.has(cacheKey)) {
+          imageCache.set(cacheKey, processImageSource(src, imageOptions));
+        }
+        const processed = await imageCache.get(cacheKey);
+        return { src, picture: processed.picture };
       }
+
       const resolved = resolveLocalAsset(src, filePath);
       if (!resolved) {
-        throw new Error(`${filePath}: image must live under assets/ (${src})`);
+        throw new Error(`${filePath}: image must live under vault (${src})`);
       }
       const ext = path.extname(resolved).toLowerCase();
       if (!IMAGE_EXTS.has(ext)) {
@@ -457,7 +461,7 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
         imageCache.set(resolved, processImage(resolved, imageOptions));
       }
       const processed = await imageCache.get(resolved);
-      return { src, picture: processed.picture, external: false };
+      return { src, picture: processed.picture };
     })
   );
 
@@ -470,11 +474,6 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
     const entry = imageMap.get(src);
     if (entry && entry.picture) {
       return buildPictureHtml(entry.picture, { alt, imgClass: 'article-image' });
-    }
-    if (entry && entry.external) {
-      const title = token.attrGet('title');
-      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
-      return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"${titleAttr} />`;
     }
     return '';
   };
@@ -520,7 +519,7 @@ const run = async () => {
   const imageCache = new Map();
   const imageOptions = {
     outputBase: path.join(outputDir, 'assets'),
-    sourceBase: assetsDir,
+    sourceBase: inputDir,
     publicBase: '/assets',
     maxWidth: 2000,
   };
@@ -530,21 +529,27 @@ const run = async () => {
       let coverPicture = null;
       if (post.coverImage) {
         if (isExternalAsset(post.coverImage)) {
-          throw new Error(`${post.sourcePath}: cover image must be local assets/`);
+          const cacheKey = `external:${post.coverImage}`;
+          if (!imageCache.has(cacheKey)) {
+            imageCache.set(cacheKey, processImageSource(post.coverImage, imageOptions));
+          }
+          const processed = await imageCache.get(cacheKey);
+          coverPicture = processed.picture;
+        } else {
+          const resolved = resolveLocalAsset(post.coverImage, post.sourcePath);
+          if (!resolved) {
+            throw new Error(`${post.sourcePath}: cover image must live under vault`);
+          }
+          const ext = path.extname(resolved).toLowerCase();
+          if (!IMAGE_EXTS.has(ext)) {
+            throw new Error(`${post.sourcePath}: unsupported cover image format ${ext}`);
+          }
+          if (!imageCache.has(resolved)) {
+            imageCache.set(resolved, processImage(resolved, imageOptions));
+          }
+          const processed = await imageCache.get(resolved);
+          coverPicture = processed.picture;
         }
-        const resolved = resolveLocalAsset(post.coverImage, post.sourcePath);
-        if (!resolved) {
-          throw new Error(`${post.sourcePath}: cover image must live under assets/`);
-        }
-        const ext = path.extname(resolved).toLowerCase();
-        if (!IMAGE_EXTS.has(ext)) {
-          throw new Error(`${post.sourcePath}: unsupported cover image format ${ext}`);
-        }
-        if (!imageCache.has(resolved)) {
-          imageCache.set(resolved, processImage(resolved, imageOptions));
-        }
-        const processed = await imageCache.get(resolved);
-        coverPicture = processed.picture;
       }
 
       const contentHtml = await renderMarkdownWithImages({
