@@ -257,29 +257,8 @@ const renderPosts = (posts) => {
   });
 };
 
-const animateListSwap = (nextPosts) => {
-  if (!grid) {
-    renderPosts(nextPosts);
-    return;
-  }
-  const items = Array.from(grid.children);
-  if (items.length === 0) {
-    renderPosts(nextPosts);
-    return;
-  }
-
-  items.forEach((item) => item.classList.add('is-exiting'));
-
-  const onDone = () => {
-    renderPosts(nextPosts);
-    const incoming = Array.from(grid.children);
-    incoming.forEach((item) => item.classList.add('is-entering'));
-    requestAnimationFrame(() => {
-      incoming.forEach((item) => item.classList.remove('is-entering'));
-    });
-  };
-
-  window.setTimeout(onDone, 180);
+const swapPosts = (nextPosts) => {
+  renderPosts(nextPosts);
 };
 
 const setPaginationVisible = (isVisible) => {
@@ -291,14 +270,14 @@ const setPaginationVisible = (isVisible) => {
 
 const renderFilteredPosts = () => {
   if (state.filter === 'all') {
-    animateListSwap(state.initialPosts);
+    swapPosts(state.initialPosts);
     setPaginationVisible(true);
     return;
   }
   const filtered = state.filterIndex.filter((post) =>
     (post.categories || []).some((category) => slugifySegment(category) === state.filter)
   );
-  animateListSwap(filtered);
+  swapPosts(filtered);
   setPaginationVisible(false);
 };
 
@@ -351,8 +330,6 @@ langSwitchers.forEach((switcher) => {
   }
   toggle.addEventListener('click', () => {
     const nextLang = state.language === 'zh' ? 'en' : 'zh';
-    toggle.classList.add('is-flash');
-    window.setTimeout(() => toggle.classList.remove('is-flash'), 180);
     saveScrollPosition();
     setLanguagePreference(nextLang);
     if (pageData.langSwitchUrl) {
@@ -419,13 +396,6 @@ const init = async () => {
   updateLangSwitchers(state.language);
   initTheme();
   await initFilters();
-  if (grid) {
-    grid.classList.add('is-ready');
-  }
-  const article = document.querySelector('.article-page');
-  if (article) {
-    requestAnimationFrame(() => article.classList.add('is-ready'));
-  }
   restoreScrollPosition();
   window.addEventListener('beforeunload', saveScrollPosition);
 };

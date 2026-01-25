@@ -111,16 +111,8 @@ body[data-page='post'] {
 }
 
 body[data-page='post'] .article-page {
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 0.4s ease,
-    transform 0.4s ease;
-}
-
-body[data-page='post'] .article-page.is-ready {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 /* Navbar */
@@ -207,24 +199,13 @@ body[data-page='post'] .article-page.is-ready {
   cursor: pointer;
   text-align: center;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .lang-toggle:hover {
   color: var(--text-primary);
-  border-color: transparent;
-  transform: translateY(-1px);
-}
-
-.lang-toggle.is-flash,
-.lang-toggle:active {
-  color: var(--text-primary);
-  background: var(--pill-active-bg);
-  border-color: transparent;
-  transform: translateY(0);
+  border-color: var(--text-secondary);
 }
 
 .theme-trigger {
@@ -433,16 +414,8 @@ body.view-article .navbar .action-controls {
   margin: 0 auto;
   padding: 2rem 5% 4rem;
   gap: 0;
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 0.35s ease,
-    transform 0.35s ease;
-}
-
-.grid-container.is-ready {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 /* Card */
@@ -465,20 +438,11 @@ body.view-article .navbar .action-controls {
   margin-bottom: 1rem;
   position: relative;
   overflow: visible;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
   text-decoration: none;
   color: inherit;
-}
-
-.card.is-exiting {
-  opacity: 0;
-  transform: translateY(8px) scale(0.99);
-  pointer-events: none;
-}
-
-.card.is-entering {
-  opacity: 0;
-  transform: translateY(8px) scale(0.99);
 }
 
 .card:last-child {
