@@ -12,7 +12,7 @@
       rel="stylesheet">
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body data-page="list">
+  <body data-page="post">
     <div id="root">
       <nav class="navbar">
         <a href="{{HOME_URL}}" class="brand">Gen Blog</a>
@@ -108,13 +108,20 @@
           </div>
         </div>
       </nav>
-      <div class="filter-bar">
-        <div id="filter-pills" class="filter-pills"></div>
-      </div>
-
-      <main id="grid-container" class="grid-container">{{LIST_CONTENT}}</main>
-      <nav class="pagination" data-pagination>{{PAGINATION}}</nav>
     </div>
+
+    <a class="close-btn" href="{{HOME_URL}}" aria-label="Back">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      <span class="back-text">Back</span>
+    </a>
+
+    <main class="article-page">
+      <div class="article-content">
+        {{ARTICLE_CONTENT}}
+      </div>
+    </main>
 
     <script id="page-data" type="application/json">
       {{PAGE_DATA}}

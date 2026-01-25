@@ -184,7 +184,7 @@ Use `<picture>` for compatibility:
 4. **Image Pipeline**: WebP + fallback + resize
 5. **Filter Index + UI wiring**
 6. **SEO Files**: sitemap + robots + meta tags
-7. **Test Data**: add `dump-markdown/` samples
+7. **Test Data**: keep local samples under `.sample-markdown/blog-v1/`
 8. **Baseline**: run gen-blog-quality-baseline
 
 Each milestone produces a small commit and runs pre-commit hooks.
@@ -200,4 +200,3 @@ Each milestone produces a small commit and runs pre-commit hooks.
 - Behavior when `[[...]]` is found in markdown in V1.
 - Exact list of markdown-it plugins to include.
 - Final URL scheme for language directories (e.g., `/en/` vs `/zh/`).
-

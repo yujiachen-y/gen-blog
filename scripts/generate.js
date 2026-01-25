@@ -1,18 +1,37 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
-import { marked } from 'marked';
+import { createMarkdownRenderer } from './markdown.js';
+import { processImage } from './images.js';
 
-const [inputArg, outputArg] = process.argv.slice(2);
+const args = process.argv.slice(2);
 
-if (!inputArg) {
-  console.error('Usage: npm run generate -- <markdownDir> [outputDir]');
+if (args.length === 0) {
+  console.error('Usage: npm run generate -- <markdownDir> [outputDir] [--site-url <url>]');
   process.exit(1);
 }
 
+const getArgValue = (flag, fallback) => {
+  const index = args.indexOf(flag);
+  if (index === -1) {
+    return fallback;
+  }
+  const value = args[index + 1];
+  return value ?? fallback;
+};
+
+const inputArg = args[0];
+const outputArg = args[1] && !args[1].startsWith('--') ? args[1] : 'dist';
+const siteUrl = getArgValue('--site-url', null);
+
 const inputDir = path.resolve(inputArg);
-const outputDir = path.resolve(outputArg ?? 'dist');
+const outputDir = path.resolve(outputArg);
 const themeDir = path.resolve('theme');
+const assetsDir = path.join(inputDir, 'assets');
+
+const PAGE_SIZE = 12;
+const SUPPORTED_LANGS = new Set(['zh', 'en']);
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png']);
 
 const slugifySegment = (value) =>
   value
@@ -28,20 +47,6 @@ const slugifyPath = (value) =>
     .filter(Boolean)
     .join('/');
 
-const normalizeLang = (value) => {
-  const raw = value ? String(value).toLowerCase().trim() : '';
-  if (raw.startsWith('zh')) {
-    return 'zh';
-  }
-  if (raw.startsWith('en')) {
-    return 'en';
-  }
-  return 'default';
-};
-
-const humanize = (value) =>
-  value.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
 const formatDate = (value) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -50,52 +55,46 @@ const formatDate = (value) => {
   return date.toISOString().slice(0, 10);
 };
 
-const buildExcerpt = (content) => {
-  const stripped = content
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/`[^`]*`/g, ' ')
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[#>*_~`-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+const ensureDir = (dir) => fs.mkdir(dir, { recursive: true });
 
-  return stripped.length > 160 ? `${stripped.slice(0, 157)}...` : stripped;
-};
+const writeFile = (filePath, data) => fs.writeFile(filePath, data, 'utf8');
 
-const normalizeTitle = (value) => value.trim().toLowerCase().replace(/\s+/g, ' ');
+const writeJson = (filePath, data) =>
+  fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 
-const extractFirstHeading = (content) => {
-  const match = content.match(/^#\s+(.+)$/m);
-  if (!match) {
+const readTemplate = async (fileName) => fs.readFile(path.join(themeDir, fileName), 'utf8');
+
+const renderTemplate = (template, values) =>
+  Object.entries(values).reduce(
+    (acc, [key, value]) => acc.replaceAll(`{{${key}}}`, String(value ?? '')),
+    template
+  );
+
+const normalizeLanguage = (value) => {
+  if (!value) {
     return null;
   }
-
-  return {
-    text: match[1].trim(),
-    index: match.index ?? 0,
-    line: match[0],
-  };
+  const raw = String(value).toLowerCase().trim();
+  if (raw === 'zh' || raw.startsWith('zh-')) {
+    return 'zh';
+  }
+  if (raw === 'en' || raw.startsWith('en-')) {
+    return 'en';
+  }
+  return null;
 };
 
-const stripFirstHeading = (content, heading) => {
-  if (!heading) {
-    return content;
-  }
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
-  const before = content.slice(0, heading.index);
-  let after = content.slice(heading.index + heading.line.length);
+const stripLeadingSlash = (value) => (value.startsWith('/') ? value.slice(1) : value);
 
-  if (after.startsWith('\r\n')) {
-    after = after.slice(2);
-  } else if (after.startsWith('\n')) {
-    after = after.slice(1);
-  }
-
-  after = after.replace(/^\s*\r?\n/, '');
-
-  return `${before}${after}`;
-};
+const shouldIgnoreDir = (entryName) => entryName.startsWith('.') || entryName === 'node_modules';
 
 const collectMarkdownFiles = async (dir) => {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -103,6 +102,9 @@ const collectMarkdownFiles = async (dir) => {
     entries.map(async (entry) => {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
+        if (shouldIgnoreDir(entry.name)) {
+          return [];
+        }
         return collectMarkdownFiles(fullPath);
       }
       if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
@@ -115,140 +117,271 @@ const collectMarkdownFiles = async (dir) => {
   return nested.flat();
 };
 
-const ensureDir = (dir) => fs.mkdir(dir, { recursive: true });
-
-const writeJson = (filePath, data) =>
-  fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
-
-const copyDirectory = async (source, target) => {
-  const entries = await fs.readdir(source, { withFileTypes: true });
-  await ensureDir(target);
-  await Promise.all(
-    entries.map(async (entry) => {
-      const sourcePath = path.join(source, entry.name);
-      const targetPath = path.join(target, entry.name);
-      if (entry.isDirectory()) {
-        await copyDirectory(sourcePath, targetPath);
-        return;
-      }
-      if (entry.isFile()) {
-        await fs.copyFile(sourcePath, targetPath);
-      }
-    })
-  );
+const resolveTranslationKey = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return null;
+  }
+  const slugged = slugifyPath(raw);
+  if (!slugged || slugged !== raw) {
+    return null;
+  }
+  return raw;
 };
 
-const copyDirectoryIfExists = async (source, target) => {
-  try {
-    const stat = await fs.stat(source);
-    if (!stat.isDirectory()) {
-      return;
-    }
-  } catch (error) {
-    return;
+const normalizeCategories = (value) => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const categories = value.map((item) => String(item || '').trim()).filter(Boolean);
+  return categories.length > 0 ? categories : null;
+};
+
+const isExternalAsset = (src) => /^https?:\/\//i.test(src) || src.startsWith('data:');
+
+const resolveLocalAsset = (src, filePath) => {
+  if (!src) {
+    return null;
   }
 
-  await copyDirectory(source, target);
+  const trimmed = src.startsWith('/') ? src.slice(1) : src;
+  const isVaultRelative = trimmed.startsWith('assets/') || trimmed.startsWith('assets\\');
+  const resolved =
+    src.startsWith('/') || isVaultRelative
+      ? path.join(inputDir, trimmed)
+      : path.resolve(path.dirname(filePath), trimmed);
+  const relative = path.relative(assetsDir, resolved);
+
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+
+  return resolved;
 };
+
+const buildPictureHtml = (picture, options = {}) => {
+  if (!picture) {
+    return '';
+  }
+
+  const { alt = '', pictureClass = '', imgClass = '', loading = null } = options;
+  const altText = escapeHtml(alt);
+  const width = picture.img.width ? ` width="${picture.img.width}"` : '';
+  const height = picture.img.height ? ` height="${picture.img.height}"` : '';
+  const loadingAttr = loading ? ` loading="${loading}"` : '';
+  const pictureClassAttr = pictureClass ? ` class="${pictureClass}"` : '';
+  const imgClassAttr = imgClass ? ` class="${imgClass}"` : '';
+
+  return `\n<picture${pictureClassAttr}>\n  <source srcset="${picture.sources[0].src}" type="${picture.sources[0].type}" />\n  <img src="${picture.img.src}" alt="${altText}"${imgClassAttr}${width}${height}${loadingAttr} />\n</picture>\n`;
+};
+
+const buildArticleHtml = (post) => {
+  const coverHtml = post.coverPicture
+    ? `\n<div class="article-cover">${buildPictureHtml(post.coverPicture, {
+        alt: post.title,
+        imgClass: 'article-cover-image',
+      })}<div class="article-cover-overlay"></div></div>\n`
+    : '';
+
+  const categoryLabel = post.categories.map((cat) => cat.toUpperCase()).join(' · ');
+
+  return `\n${coverHtml}\n<div class="article-text-content">\n  <div class="article-date">${escapeHtml(post.date)} · ${escapeHtml(
+    categoryLabel
+  )}</div>\n  <h1 class="article-hero">${escapeHtml(post.title)}</h1>\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
+};
+
+const buildCardHtml = (post) => {
+  const categoryLabel = post.categories[0] || 'General';
+  const coverHtml = post.coverPicture
+    ? buildPictureHtml(post.coverPicture, {
+        alt: post.title,
+        imgClass: 'card-image',
+        loading: 'lazy',
+      })
+    : '';
+
+  return `\n<a class="card${post.coverPicture ? ' has-image' : ''}" href="${post.url}">\n  <div class="card-content-wrapper">\n    <div class="card-date">${escapeHtml(post.date)} · ${escapeHtml(
+    categoryLabel.toUpperCase()
+  )}</div>\n    <div class="card-title">${escapeHtml(post.title)}</div>\n    <div class="card-excerpt">${escapeHtml(post.excerpt)}</div>\n  </div>\n  ${coverHtml}\n</a>\n`;
+};
+
+const buildMetaTags = (tags) =>
+  tags
+    .filter(Boolean)
+    .map((tag) => `    ${tag}`)
+    .join('\n');
+
+const buildHreflangLinks = (translations) => {
+  const entries = Object.entries(translations).map(
+    ([lang, url]) => `<link rel="alternate" hreflang="${lang}" href="${url}" />`
+  );
+  return entries.join('\n');
+};
+
+const buildCanonical = (url) => `<link rel="canonical" href="${url}" />`;
+
+const buildMetaForPost = (post, siteTitle, canonicalUrl, hreflangLinks, baseUrl) => {
+  const description = escapeHtml(post.excerpt);
+  const title = escapeHtml(`${post.title} | ${siteTitle}`);
+  const ogImageSrc = post.coverPicture?.img?.src
+    ? buildUrl(baseUrl, post.coverPicture.img.src)
+    : null;
+  const ogImage = ogImageSrc ? `<meta property="og:image" content="${ogImageSrc}" />` : '';
+  const twitterCard = post.coverPicture ? 'summary_large_image' : 'summary';
+
+  return buildMetaTags([
+    `<meta name="description" content="${description}" />`,
+    `<meta property="og:title" content="${title}" />`,
+    `<meta property="og:description" content="${description}" />`,
+    `<meta property="og:type" content="article" />`,
+    `<meta property="og:url" content="${canonicalUrl}" />`,
+    ogImage,
+    `<meta name="twitter:card" content="${twitterCard}" />`,
+    buildCanonical(canonicalUrl),
+    hreflangLinks,
+  ]);
+};
+
+const buildMetaForList = (siteTitle, description, canonicalUrl, prevUrl, nextUrl, hreflangLinks) =>
+  buildMetaTags([
+    `<meta name="description" content="${escapeHtml(description)}" />`,
+    `<meta property="og:title" content="${escapeHtml(siteTitle)}" />`,
+    `<meta property="og:description" content="${escapeHtml(description)}" />`,
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:url" content="${canonicalUrl}" />`,
+    buildCanonical(canonicalUrl),
+    prevUrl ? `<link rel="prev" href="${prevUrl}" />` : '',
+    nextUrl ? `<link rel="next" href="${nextUrl}" />` : '',
+    hreflangLinks,
+  ]);
+
+const buildPaginationHtml = (page, totalPages, pageUrl) => {
+  if (totalPages <= 1) {
+    return '';
+  }
+  const prevUrl = page > 1 ? pageUrl(page - 1) : null;
+  const nextUrl = page < totalPages ? pageUrl(page + 1) : null;
+
+  const prevLink = prevUrl
+    ? `<a class="pagination-link" href="${prevUrl}">Prev</a>`
+    : `<span class="pagination-link is-disabled">Prev</span>`;
+  const nextLink = nextUrl
+    ? `<a class="pagination-link" href="${nextUrl}">Next</a>`
+    : `<span class="pagination-link is-disabled">Next</span>`;
+
+  return `\n<div class="pagination-inner">\n  ${prevLink}\n  <span class="pagination-status">Page ${page} of ${totalPages}</span>\n  ${nextLink}\n</div>\n`;
+};
+
+const chunkBy = (items, size) =>
+  items.reduce((acc, item, index) => {
+    const pageIndex = Math.floor(index / size);
+    const next = acc[pageIndex] || [];
+    return [...acc.slice(0, pageIndex), [...next, item], ...acc.slice(pageIndex + 1)];
+  }, []);
 
 const loadPosts = async () => {
   const files = await collectMarkdownFiles(inputDir);
+  const errors = [];
 
-  if (files.length === 0) {
-    return [];
-  }
-
-  const posts = await Promise.all(
+  const results = await Promise.all(
     files.map(async (filePath) => {
       const raw = await fs.readFile(filePath, 'utf8');
       const { data, content } = matter(raw);
-      const relativePath = path.relative(inputDir, filePath);
-      const withoutExt = relativePath.replace(/\.md$/i, '');
-      const slugSource = data.slug ? String(data.slug) : withoutExt;
-      const translationKeySource = data.translationKey ? String(data.translationKey) : slugSource;
-      const translationKey = slugifyPath(translationKeySource);
-      const lang = normalizeLang(data.lang ?? data.language);
-      const stat = await fs.stat(filePath);
-      const date = formatDate(data.date) ?? formatDate(stat.mtime) ?? '1970-01-01';
-      const heading = extractFirstHeading(content);
-      const frontmatterTitle = data.title ? String(data.title) : null;
-      const title =
-        frontmatterTitle || (heading ? heading.text : null) || humanize(path.basename(withoutExt));
-      const shouldStripHeading =
-        heading &&
-        (!frontmatterTitle || normalizeTitle(heading.text) === normalizeTitle(frontmatterTitle));
-      const contentForHtml = shouldStripHeading ? stripFirstHeading(content, heading) : content;
-      const category =
-        (data.category ? String(data.category) : null) || translationKey.split('/')[0] || 'General';
-      const categorySlug = slugifySegment(category);
-      const excerpt = (data.excerpt ? String(data.excerpt) : null) || buildExcerpt(contentForHtml);
-      const html = marked.parse(contentForHtml);
-      const cover = data.coverImage || data.cover || null;
+      const fileErrors = [];
+
+      const blogPublish = data.blog_publish;
+      if (blogPublish === undefined) {
+        fileErrors.push(`${filePath}: missing blog_publish`);
+      } else if (blogPublish !== true && blogPublish !== false) {
+        fileErrors.push(`${filePath}: blog_publish must be true or false`);
+      }
+      if (blogPublish === false) {
+        return null;
+      }
+
+      const title = data.blog_title ? String(data.blog_title).trim() : '';
+      if (!title) {
+        fileErrors.push(`${filePath}: missing blog_title`);
+      }
+
+      const date = formatDate(data.blog_date);
+      if (!date) {
+        fileErrors.push(`${filePath}: invalid blog_date`);
+      }
+
+      const lang = normalizeLanguage(data.blog_lang);
+      if (!lang || !SUPPORTED_LANGS.has(lang)) {
+        fileErrors.push(`${filePath}: invalid blog_lang (must be zh or en)`);
+      }
+
+      const translationKey = resolveTranslationKey(data.blog_translation_key);
+      if (!translationKey) {
+        fileErrors.push(`${filePath}: invalid blog_translation_key (use slug/path)`);
+      }
+
+      const categories = normalizeCategories(data.blog_category);
+      if (!categories) {
+        fileErrors.push(`${filePath}: blog_category must be a non-empty list`);
+      }
+
+      const excerpt = data.blog_excerpt ? String(data.blog_excerpt).trim() : '';
+      if (!excerpt) {
+        fileErrors.push(`${filePath}: missing blog_excerpt`);
+      }
+
+      const coverImage = data.blog_cover_image ? String(data.blog_cover_image).trim() : null;
+
+      if (fileErrors.length > 0) {
+        errors.push(...fileErrors);
+        return null;
+      }
 
       return {
-        translationKey,
-        lang,
+        sourcePath: filePath,
         title,
         date,
-        category,
-        categorySlug,
+        lang,
+        translationKey,
+        categories,
         excerpt,
-        content: html,
-        coverImage: cover ? String(cover) : null,
+        coverImage,
+        content,
       };
     })
   );
 
-  return posts.filter((post) => post.translationKey.length > 0);
+  if (errors.length > 0) {
+    throw new Error(`Frontmatter validation failed:\n${errors.join('\n')}`);
+  }
+
+  return results.filter(Boolean);
 };
 
-const copyThemeAssets = async () => {
-  await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(outputDir, 'styles.css'));
-  await fs.copyFile(path.join(themeDir, 'index.html'), path.join(outputDir, 'index.html'));
-  await fs.copyFile(path.join(themeDir, 'app.js'), path.join(outputDir, 'app.js'));
-};
-
-const run = async () => {
-  await ensureDir(outputDir);
-  await ensureDir(path.join(outputDir, 'posts'));
-
-  await copyThemeAssets();
-  await copyDirectoryIfExists(path.resolve('assets'), path.join(outputDir, 'assets'));
-
-  const posts = await loadPosts();
-  const groupedPosts = new Map();
+const buildPostGroups = (posts) => {
+  const grouped = new Map();
+  const errors = [];
 
   posts.forEach((post) => {
-    if (!groupedPosts.has(post.translationKey)) {
-      groupedPosts.set(post.translationKey, {
-        translationKey: post.translationKey,
-        translations: {},
-      });
+    if (!grouped.has(post.translationKey)) {
+      grouped.set(post.translationKey, { translationKey: post.translationKey, translations: {} });
     }
-    groupedPosts.get(post.translationKey).translations[post.lang] = {
-      title: post.title,
-      date: post.date,
-      category: post.category,
-      categorySlug: post.categorySlug,
-      excerpt: post.excerpt,
-      coverImage: post.coverImage,
-    };
+    const group = grouped.get(post.translationKey);
+    if (group.translations[post.lang]) {
+      errors.push(
+        `${post.sourcePath}: duplicate translation for ${post.translationKey}/${post.lang}`
+      );
+      return;
+    }
+    group.translations[post.lang] = post;
   });
 
-  const getDefaultLang = (translations) => {
-    if (translations.zh) {
-      return 'zh';
-    }
-    if (translations.en) {
-      return 'en';
-    }
-    const [first] = Object.keys(translations);
-    return first || 'default';
-  };
+  if (errors.length > 0) {
+    throw new Error(`Translation conflicts:\n${errors.join('\n')}`);
+  }
 
-  const groups = Array.from(groupedPosts.values()).map((group) => {
+  const groups = Array.from(grouped.values()).map((group) => {
     const languages = Object.keys(group.translations);
-    const defaultLang = getDefaultLang(group.translations);
+    const defaultLang = languages.includes('zh') ? 'zh' : languages[0];
     return {
       ...group,
       languages,
@@ -256,42 +389,368 @@ const run = async () => {
     };
   });
 
-  const sortedGroups = groups.sort((a, b) => {
-    const aLang = a.defaultLang || a.languages[0];
-    const bLang = b.defaultLang || b.languages[0];
-    const aTime = new Date(a.translations[aLang]?.date ?? '1970-01-01').getTime();
-    const bTime = new Date(b.translations[bLang]?.date ?? '1970-01-01').getTime();
-    return bTime - aTime;
-  });
+  const missingLangs = groups
+    .filter((group) => !group.languages.includes('zh') || !group.languages.includes('en'))
+    .map((group) => group.translationKey);
 
-  const indexPayload = sortedGroups.map((group) => ({
-    translationKey: group.translationKey,
-    languages: group.languages,
-    defaultLang: group.defaultLang,
-    translations: group.translations,
-  }));
+  if (missingLangs.length > 0) {
+    throw new Error(`Missing zh/en translations for: ${missingLangs.join(', ')}`);
+  }
 
-  await writeJson(path.join(outputDir, 'posts', 'index.json'), indexPayload);
+  return groups;
+};
 
-  await Promise.all(
-    posts.map(async (post) => {
-      const detailPath = path.join(outputDir, 'posts', post.translationKey, `${post.lang}.json`);
-      await ensureDir(path.dirname(detailPath));
-      await writeJson(detailPath, {
-        translationKey: post.translationKey,
-        lang: post.lang,
-        title: post.title,
-        date: post.date,
-        category: post.category,
-        categorySlug: post.categorySlug,
-        excerpt: post.excerpt,
-        coverImage: post.coverImage,
-        content: post.content,
-      });
+const buildUrl = (baseUrl, pathName) => {
+  if (!baseUrl) {
+    return pathName;
+  }
+  const trimmed = baseUrl.replace(/\/$/, '');
+  return `${trimmed}${pathName}`;
+};
+
+const buildPostUrl = (translationKey, lang, defaultLang) => {
+  const langSegment = lang === defaultLang ? '' : `/${lang}`;
+  return `/${translationKey}${langSegment}/`;
+};
+
+const buildListUrl = (lang, defaultLang, page) => {
+  const prefix = lang === defaultLang ? '' : `/${lang}`;
+  if (page === 1) {
+    return `${prefix}/` || '/';
+  }
+  return `${prefix}/page/${page}/`;
+};
+
+const buildAboutUrl = (lang, defaultLang, aboutGroup) => {
+  if (!aboutGroup) {
+    return buildListUrl(lang, defaultLang, 1);
+  }
+  const targetLang = aboutGroup.languages.includes(lang) ? lang : aboutGroup.defaultLang;
+  return buildPostUrl('about', targetLang, aboutGroup.defaultLang);
+};
+
+const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOptions }) => {
+  const renderer = createMarkdownRenderer({ allowHtml: false });
+  const { md } = renderer;
+  const env = {};
+  const tokens = md.parse(content, env);
+
+  const imageSources = tokens
+    .filter((token) => token.type === 'image')
+    .map((token) => token.attrGet('src'))
+    .filter(Boolean);
+
+  const resolvedImages = await Promise.all(
+    imageSources.map(async (src) => {
+      if (isExternalAsset(src)) {
+        return { src, picture: null, external: true };
+      }
+      const resolved = resolveLocalAsset(src, filePath);
+      if (!resolved) {
+        throw new Error(`${filePath}: image must live under assets/ (${src})`);
+      }
+      const ext = path.extname(resolved).toLowerCase();
+      if (!IMAGE_EXTS.has(ext)) {
+        throw new Error(`${filePath}: unsupported image format ${ext} in ${src}`);
+      }
+      if (!imageCache.has(resolved)) {
+        imageCache.set(resolved, processImage(resolved, imageOptions));
+      }
+      const processed = await imageCache.get(resolved);
+      return { src, picture: processed.picture, external: false };
     })
   );
 
-  console.log(`Generated ${sortedGroups.length} posts in ${outputDir}`);
+  const imageMap = new Map(resolvedImages.map((entry) => [entry.src, entry]));
+
+  md.renderer.rules.image = (tokenList, idx) => {
+    const token = tokenList[idx];
+    const src = token.attrGet('src') || '';
+    const alt = token.content || '';
+    const entry = imageMap.get(src);
+    if (entry && entry.picture) {
+      return buildPictureHtml(entry.picture, { alt, imgClass: 'article-image' });
+    }
+    if (entry && entry.external) {
+      const title = token.attrGet('title');
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+      return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"${titleAttr} />`;
+    }
+    return '';
+  };
+
+  return md.renderer.render(tokens, md.options, env);
+};
+
+const copyThemeAssets = async () => {
+  await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(outputDir, 'styles.css'));
+  await fs.copyFile(path.join(themeDir, 'app.js'), path.join(outputDir, 'app.js'));
+};
+
+const writePage = async (targetDir, html) => {
+  await ensureDir(targetDir);
+  await writeFile(path.join(targetDir, 'index.html'), html);
+};
+
+const run = async () => {
+  if (outputDir === inputDir) {
+    throw new Error('Output directory must be different from input directory.');
+  }
+
+  await fs.rm(outputDir, { recursive: true, force: true });
+  await ensureDir(outputDir);
+  await ensureDir(path.join(outputDir, 'posts'));
+  await ensureDir(path.join(outputDir, 'assets'));
+
+  const [listTemplate, postTemplate] = await Promise.all([
+    readTemplate('index.html'),
+    readTemplate('post.html'),
+  ]);
+
+  await copyThemeAssets();
+
+  const posts = await loadPosts();
+  const groups = buildPostGroups(posts);
+  const aboutGroup = groups.find((group) => group.translationKey === 'about') || null;
+
+  const nonAboutPosts = posts.filter((post) => post.translationKey !== 'about');
+  const languages = Array.from(new Set(nonAboutPosts.map((post) => post.lang).filter(Boolean)));
+  const defaultLang = languages.includes('zh') ? 'zh' : languages[0] || 'en';
+
+  const imageCache = new Map();
+  const imageOptions = {
+    outputBase: path.join(outputDir, 'assets'),
+    sourceBase: assetsDir,
+    publicBase: '/assets',
+    maxWidth: 2000,
+  };
+
+  const processedPosts = await Promise.all(
+    posts.map(async (post) => {
+      let coverPicture = null;
+      if (post.coverImage) {
+        if (isExternalAsset(post.coverImage)) {
+          throw new Error(`${post.sourcePath}: cover image must be local assets/`);
+        }
+        const resolved = resolveLocalAsset(post.coverImage, post.sourcePath);
+        if (!resolved) {
+          throw new Error(`${post.sourcePath}: cover image must live under assets/`);
+        }
+        const ext = path.extname(resolved).toLowerCase();
+        if (!IMAGE_EXTS.has(ext)) {
+          throw new Error(`${post.sourcePath}: unsupported cover image format ${ext}`);
+        }
+        if (!imageCache.has(resolved)) {
+          imageCache.set(resolved, processImage(resolved, imageOptions));
+        }
+        const processed = await imageCache.get(resolved);
+        coverPicture = processed.picture;
+      }
+
+      const contentHtml = await renderMarkdownWithImages({
+        content: post.content,
+        filePath: post.sourcePath,
+        imageCache,
+        imageOptions,
+      });
+
+      return {
+        ...post,
+        coverPicture,
+        contentHtml,
+      };
+    })
+  );
+
+  const groupMap = new Map(groups.map((group) => [group.translationKey, group]));
+  const postPages = processedPosts.map((post) => {
+    const group = groupMap.get(post.translationKey);
+    const pageUrl = buildPostUrl(post.translationKey, post.lang, group.defaultLang);
+    const langSwitchUrl = group.languages
+      .filter((lang) => lang !== post.lang)
+      .map((lang) => buildPostUrl(post.translationKey, lang, group.defaultLang))[0];
+
+    return {
+      ...post,
+      url: pageUrl,
+      langSwitchUrl,
+      defaultLang: group.defaultLang,
+      languages: group.languages,
+    };
+  });
+
+  const listDataByLang = languages.map((lang) => {
+    const items = postPages
+      .filter((post) => post.lang === lang && post.translationKey !== 'about')
+      .sort((a, b) => {
+        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateDiff !== 0) {
+          return dateDiff;
+        }
+        return a.translationKey.localeCompare(b.translationKey);
+      });
+    return { lang, items };
+  });
+
+  const pageCounts = new Map(
+    listDataByLang.map((group) => [
+      group.lang,
+      Math.max(1, Math.ceil(group.items.length / PAGE_SIZE)),
+    ])
+  );
+
+  const filterIndex = listDataByLang.flatMap((group) =>
+    group.items.map((post) => ({
+      translationKey: post.translationKey,
+      lang: post.lang,
+      title: post.title,
+      date: post.date,
+      categories: post.categories,
+      excerpt: post.excerpt,
+      coverImage: post.coverPicture
+        ? {
+            webp: post.coverPicture.sources[0].src,
+            fallback: post.coverPicture.img.src,
+          }
+        : null,
+      url: post.url,
+    }))
+  );
+
+  await writeJson(path.join(outputDir, 'posts', 'filter-index.json'), filterIndex);
+
+  const siteTitle = 'Gen Blog';
+
+  await Promise.all(
+    postPages.map(async (post) => {
+      const canonicalUrl = buildUrl(siteUrl, post.url);
+      const hreflangLinks = buildHreflangLinks(
+        post.languages.reduce((acc, lang) => {
+          acc[lang] = buildUrl(siteUrl, buildPostUrl(post.translationKey, lang, post.defaultLang));
+          return acc;
+        }, {})
+      );
+
+      const metaTags = buildMetaForPost(post, siteTitle, canonicalUrl, hreflangLinks, siteUrl);
+      const articleHtml = buildArticleHtml(post);
+      const pageData = {
+        pageType: post.translationKey === 'about' ? 'about' : 'post',
+        lang: post.lang,
+        langSwitchUrl: post.langSwitchUrl || null,
+      };
+
+      const html = renderTemplate(postTemplate, {
+        PAGE_TITLE: `${post.title} | ${siteTitle}`,
+        META_TAGS: metaTags,
+        LANG: post.lang,
+        HOME_URL: buildListUrl(post.lang, defaultLang, 1),
+        ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
+        ARTICLE_CONTENT: articleHtml,
+        PAGE_DATA: JSON.stringify(pageData, null, 2),
+      });
+
+      const targetDir = path.join(outputDir, stripLeadingSlash(post.url));
+      await writePage(targetDir, html);
+    })
+  );
+
+  const listPages = listDataByLang.flatMap((group) => {
+    const pages = chunkBy(group.items, PAGE_SIZE);
+    return pages.map((pageItems, index) => ({
+      lang: group.lang,
+      page: index + 1,
+      totalPages: pages.length,
+      items: pageItems,
+    }));
+  });
+
+  await Promise.all(
+    listPages.map(async (page) => {
+      const pageUrl = buildListUrl(page.lang, defaultLang, page.page);
+      const paginationHtml = buildPaginationHtml(page.page, page.totalPages, (target) =>
+        buildListUrl(page.lang, defaultLang, target)
+      );
+      const listHtml = page.items.map((item) => buildCardHtml(item)).join('');
+      const canonicalUrl = buildUrl(siteUrl, pageUrl);
+      const otherLang = languages.find((lang) => lang !== page.lang) || null;
+      const otherPageCount = otherLang ? pageCounts.get(otherLang) || 1 : 1;
+      const langSwitchPage = Math.min(page.page, otherPageCount);
+      const hreflangLinks = buildHreflangLinks(
+        languages.reduce((acc, lang) => {
+          acc[lang] = buildUrl(siteUrl, buildListUrl(lang, defaultLang, page.page));
+          return acc;
+        }, {})
+      );
+      const metaTags = buildMetaForList(
+        siteTitle,
+        'Latest posts and essays.',
+        canonicalUrl,
+        page.page > 1
+          ? buildUrl(siteUrl, buildListUrl(page.lang, defaultLang, page.page - 1))
+          : null,
+        page.page < page.totalPages
+          ? buildUrl(siteUrl, buildListUrl(page.lang, defaultLang, page.page + 1))
+          : null,
+        hreflangLinks
+      );
+
+      const pageData = {
+        pageType: 'list',
+        lang: page.lang,
+        langSwitchUrl: otherLang ? buildListUrl(otherLang, defaultLang, langSwitchPage) : null,
+        filterIndexUrl: '/posts/filter-index.json',
+        page: page.page,
+        totalPages: page.totalPages,
+        posts: page.items.map((item) => ({
+          translationKey: item.translationKey,
+          title: item.title,
+          date: item.date,
+          categories: item.categories,
+          excerpt: item.excerpt,
+          coverImage: item.coverPicture
+            ? {
+                webp: item.coverPicture.sources[0].src,
+                fallback: item.coverPicture.img.src,
+              }
+            : null,
+          url: item.url,
+        })),
+      };
+
+      const html = renderTemplate(listTemplate, {
+        PAGE_TITLE: page.page === 1 ? `${siteTitle}` : `${siteTitle} · Page ${page.page}`,
+        META_TAGS: metaTags,
+        LANG: page.lang,
+        HOME_URL: buildListUrl(page.lang, defaultLang, 1),
+        ABOUT_URL: buildAboutUrl(page.lang, defaultLang, aboutGroup),
+        LIST_CONTENT: listHtml,
+        PAGINATION: paginationHtml,
+        PAGE_DATA: JSON.stringify(pageData, null, 2),
+      });
+
+      const targetDir = path.join(outputDir, stripLeadingSlash(pageUrl));
+      await writePage(targetDir, html);
+    })
+  );
+
+  if (siteUrl) {
+    const urls = [
+      ...postPages.map((post) => buildUrl(siteUrl, post.url)),
+      ...listPages.map((page) =>
+        buildUrl(siteUrl, buildListUrl(page.lang, defaultLang, page.page))
+      ),
+    ];
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+      .map((url) => `  <url><loc>${url}</loc></url>`)
+      .join('\n')}\n</urlset>\n`;
+    await writeFile(path.join(outputDir, 'sitemap.xml'), sitemap);
+    await writeFile(
+      path.join(outputDir, 'robots.txt'),
+      `User-agent: *\nAllow: /\nSitemap: ${buildUrl(siteUrl, '/sitemap.xml')}\n`
+    );
+  }
+
+  console.log(`Generated ${postPages.length} posts in ${outputDir}`);
 };
 
 run().catch((error) => {

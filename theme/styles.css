@@ -105,6 +105,24 @@ body {
   overflow-x: hidden;
 }
 
+body[data-page='post'] {
+  background-color: var(--view-bg);
+  --bg-color: var(--view-bg);
+}
+
+body[data-page='post'] .article-page {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+body[data-page='post'] .article-page.is-ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Navbar */
 .navbar {
   display: flex;
@@ -159,6 +177,7 @@ body {
   font-size: 0.9rem;
   color: var(--text-secondary);
   transition: color 0.2s;
+  text-decoration: none;
 }
 
 .btn-text:hover {
@@ -361,6 +380,15 @@ body.view-article .navbar .action-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  min-height: 36px;
+}
+
+.filter-pills::-webkit-scrollbar {
+  display: none;
 }
 
 .filter-pill {
@@ -375,6 +403,12 @@ body.view-article .navbar .action-controls {
   color: var(--pill-text);
   /* Inactive text color */
   transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  line-height: 1;
 }
 
 .filter-pill:hover {
@@ -399,6 +433,16 @@ body.view-article .navbar .action-controls {
   margin: 0 auto;
   padding: 2rem 5% 4rem;
   gap: 0;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
+}
+
+.grid-container.is-ready {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Card */
@@ -422,6 +466,19 @@ body.view-article .navbar .action-controls {
   position: relative;
   overflow: visible;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.card.is-exiting {
+  opacity: 0;
+  transform: translateY(8px) scale(0.99);
+  pointer-events: none;
+}
+
+.card.is-entering {
+  opacity: 0;
+  transform: translateY(8px) scale(0.99);
 }
 
 .card:last-child {
@@ -458,6 +515,12 @@ body.view-article .navbar .action-controls {
   margin-bottom: 0.75rem;
   letter-spacing: -0.02em;
   transition: color 0.2s ease;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 74px;
 }
 
 .card:hover .card-title {
@@ -478,6 +541,7 @@ body.view-article .navbar .action-controls {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-height: 52px;
 }
 
 .card-content-wrapper {
@@ -508,9 +572,66 @@ body.view-article .navbar .action-controls {
   transition: transform 0.3s ease;
 }
 
+.card picture {
+  display: block;
+}
+
 .card:hover .card-image {
   transform: scale(1.03);
   /* Subtle zoom on hover */
+}
+
+/* Pagination */
+.pagination {
+  max-width: 720px;
+  margin: 0 auto 4rem;
+  padding: 0 5%;
+}
+
+.pagination:empty {
+  display: none;
+}
+
+.pagination.is-hidden {
+  display: none;
+}
+
+.pagination-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.pagination-link {
+  text-decoration: none;
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.pagination-link:hover {
+  transform: translateY(-1px);
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.pagination-link.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pagination-status {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
 }
 
 /* If no image, hidden by default opacity logic in JS? 
@@ -602,6 +723,11 @@ body.view-article .navbar .action-controls {
   font-weight: 500;
   z-index: 101;
   transition: transform 0.2s;
+  text-decoration: none;
+}
+
+body[data-page='post'] .close-btn {
+  top: 7.25rem;
 }
 
 .close-btn:hover {
@@ -612,6 +738,10 @@ body.view-article .navbar .action-controls {
   max-width: 740px;
   margin: 6rem auto 4rem;
   padding: 0 2rem;
+}
+
+.article-page {
+  min-height: 100vh;
 }
 
 .article-date {
@@ -651,11 +781,24 @@ body.view-article .navbar .action-controls {
   margin-bottom: 1.5rem;
 }
 
+.article-body picture {
+  display: block;
+  margin: 1.5rem 0;
+}
+
+.article-body img {
+  max-width: 100%;
+  height: auto;
+  max-height: 40vh;
+  border-radius: 6px;
+}
+
 /* Article Cover Image */
 .article-cover {
   position: relative;
   width: 100vw;
   margin-left: calc(-50vw + 50%);
+  margin-top: -0.75rem;
   height: 50vh;
   min-height: 300px;
   max-height: 500px;
@@ -696,7 +839,7 @@ body.view-article .navbar .action-controls {
 /* Adjust article-content when cover exists */
 .article-content:has(.article-cover) {
   max-width: 100%;
-  margin-top: 4rem;
+  margin-top: 0;
   padding: 0;
 }
 
@@ -704,6 +847,12 @@ body.view-article .navbar .action-controls {
   margin-top: -4rem;
   position: relative;
   z-index: 2;
+}
+
+@media (max-width: 768px) {
+  .article-body img {
+    max-height: 50vh;
+  }
 }
 
 /* About View */
@@ -792,6 +941,10 @@ body.view-article .navbar .action-controls {
   .about-hero {
     font-size: 2.5rem;
   }
+
+  body[data-page='post'] .close-btn {
+    top: 6.25rem;
+  }
 }
 
 @media (max-width: 600px) {
@@ -829,6 +982,11 @@ body.view-article .navbar .action-controls {
     padding: 1.5rem 6% 3rem;
   }
 
+  body[data-page='post'] .close-btn {
+    top: 5.75rem;
+    left: 1.5rem;
+  }
+
   .card {
     flex-direction: column;
     align-items: flex-start;
@@ -839,10 +997,16 @@ body.view-article .navbar .action-controls {
     padding-right: 0;
   }
 
+  .card picture {
+    order: -1;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
   .card-image {
     width: 100%;
     height: 180px;
-    margin: 1rem 0 0;
+    margin: 0;
   }
 
   .close-btn {
