@@ -671,7 +671,7 @@ body.view-article .navbar .action-controls {
 .close-btn {
   position: fixed;
   top: 2rem;
-  left: 2rem;
+  left: 4%;
   background: var(--close-btn-bg);
   border: none;
   cursor: pointer;
@@ -917,6 +917,10 @@ body[data-page='post'] .close-btn {
 
   .filter-bar {
     padding: 0 6% 0.5rem;
+  }
+
+  .close-btn {
+    left: 6%;
   }
 
   .filter-pills {
