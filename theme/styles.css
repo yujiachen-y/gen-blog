@@ -1,3 +1,25 @@
+@font-face {
+  font-family: 'LXGW WenKai';
+  src:
+    local('LXGW WenKai'),
+    local('LXGW WenKai Regular'),
+    url('/fonts/LXGWWenKai-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LXGW WenKai';
+  src:
+    local('LXGW WenKai'),
+    local('LXGW WenKai Medium'),
+    url('/fonts/LXGWWenKai-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Light Theme (Default) */
   --bg-color: #f7f7f7;
@@ -21,8 +43,8 @@
 
   --view-bg: #fff;
 
-  --font-ui: 'Inter', sans-serif;
-  --font-body: 'Lora', serif;
+  --font-ui: 'Inter', 'LXGW WenKai', sans-serif;
+  --font-body: 'LXGW WenKai', 'Lora', serif;
   --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   color-scheme: light;
 }

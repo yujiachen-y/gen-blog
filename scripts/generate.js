@@ -713,6 +713,23 @@ const copyThemeAssets = async (targetDir) => {
   await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(targetDir, 'styles.css'));
   await fs.copyFile(path.join(themeDir, 'app.js'), path.join(targetDir, 'app.js'));
   await fs.copyFile(path.join(themeDir, 'favicon.svg'), path.join(targetDir, 'favicon.svg'));
+  const fontsDir = path.join(themeDir, 'fonts');
+  try {
+    const entries = await fs.readdir(fontsDir, { withFileTypes: true });
+    const targetFontsDir = path.join(targetDir, 'fonts');
+    await ensureDir(targetFontsDir);
+    await Promise.all(
+      entries
+        .filter((entry) => entry.isFile())
+        .map((entry) =>
+          fs.copyFile(path.join(fontsDir, entry.name), path.join(targetFontsDir, entry.name))
+        )
+    );
+  } catch (error) {
+    if (error && error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
 };
 
 const writePage = async (targetDir, html) => {
