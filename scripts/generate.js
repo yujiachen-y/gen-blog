@@ -22,7 +22,6 @@ const getArgValue = (flag, fallback) => {
 
 const inputArg = args[0];
 const outputArg = args[1] && !args[1].startsWith('--') ? args[1] : 'dist';
-const siteUrl = getArgValue('--site-url', null);
 
 const inputDir = path.resolve(inputArg);
 const outputDir = path.resolve(outputArg);
@@ -61,6 +60,31 @@ const writeJson = (filePath, data) =>
   fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 
 const readTemplate = async (fileName) => fs.readFile(path.join(themeDir, fileName), 'utf8');
+
+const readSiteConfig = async () => {
+  const configPath = path.join(inputDir, 'blog.config.json');
+  try {
+    const raw = await fs.readFile(configPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('blog.config.json must be a JSON object');
+    }
+    const siteTitle = parsed.siteTitle === undefined ? null : String(parsed.siteTitle || '').trim();
+    if (parsed.siteTitle !== undefined && !siteTitle) {
+      throw new Error('blog.config.json: siteTitle must be a non-empty string');
+    }
+    const siteUrl = parsed.siteUrl === undefined ? null : String(parsed.siteUrl || '').trim();
+    if (parsed.siteUrl !== undefined && !siteUrl) {
+      throw new Error('blog.config.json: siteUrl must be a non-empty string');
+    }
+    return { siteTitle, siteUrl };
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return { siteTitle: null, siteUrl: null };
+    }
+    throw error;
+  }
+};
 
 const renderTemplate = (template, values) =>
   Object.entries(values).reduce(
@@ -496,6 +520,10 @@ const run = async () => {
     throw new Error('Output directory must be different from input directory.');
   }
 
+  const siteConfig = await readSiteConfig();
+  const siteUrl = getArgValue('--site-url', siteConfig.siteUrl || null);
+  const siteTitle = siteConfig.siteTitle || 'Gen Blog';
+
   await fs.rm(outputDir, { recursive: true, force: true });
   await ensureDir(outputDir);
   await ensureDir(path.join(outputDir, 'posts'));
@@ -623,8 +651,6 @@ const run = async () => {
   );
 
   await writeJson(path.join(outputDir, 'posts', 'filter-index.json'), filterIndex);
-
-  const siteTitle = 'Gen Blog';
 
   await Promise.all(
     postPages.map(async (post) => {
