@@ -149,6 +149,66 @@ const collectMarkdownFiles = async (dir) => {
   return nested.flat();
 };
 
+const collectImageFiles = async (dir) => {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (shouldIgnoreDir(entry.name)) {
+          return [];
+        }
+        return collectImageFiles(fullPath);
+      }
+      if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (IMAGE_EXTS.has(ext)) {
+          return [fullPath];
+        }
+      }
+      return [];
+    })
+  );
+
+  return nested.flat();
+};
+
+const addToIndex = (index, key, filePath) => {
+  if (!key) {
+    return;
+  }
+  const normalized = key.toLowerCase();
+  const list = index.get(normalized) || [];
+  list.push(filePath);
+  index.set(normalized, list);
+};
+
+const buildImageIndex = async (dir) => {
+  const files = await collectImageFiles(dir);
+  const index = new Map();
+  files.forEach((filePath) => {
+    const base = path.basename(filePath);
+    const name = path.parse(base).name;
+    addToIndex(index, base, filePath);
+    addToIndex(index, name, filePath);
+  });
+  return index;
+};
+
+const resolveImageFromIndex = (name, filePath, imageIndex) => {
+  if (!name) {
+    return null;
+  }
+  const matches = imageIndex.get(name.toLowerCase()) || [];
+  if (matches.length === 1) {
+    return matches[0];
+  }
+  if (matches.length > 1) {
+    throw new Error(`${filePath}: ambiguous Obsidian image "${name}" matches multiple files`);
+  }
+  return null;
+};
+
 const shouldPreserveOutput = async (dir) => {
   if (!(await pathExists(dir))) {
     return false;
@@ -196,6 +256,16 @@ const normalizeCategories = (value) => {
   return categories.length > 0 ? categories : null;
 };
 
+const toPosixPath = (value) => value.split(path.sep).join('/');
+
+const decodeUriSafe = (value) => {
+  try {
+    return decodeURI(value);
+  } catch (error) {
+    return value;
+  }
+};
+
 const isRemoteAsset = (src) => /^https?:\/\//i.test(src);
 const isDataAsset = (src) => src.startsWith('data:');
 const isExternalAsset = (src) => isRemoteAsset(src) || isDataAsset(src);
@@ -216,6 +286,81 @@ const resolveLocalAsset = (src, filePath) => {
   }
 
   return resolved;
+};
+
+const stripObsidianComments = (value) =>
+  value.replace(/%%[\s\S]*?%%/g, '').replace(/<!--[\s\S]*?-->/g, '');
+
+const isObsidianSizeHint = (value) => /^\d+(x\d+)?$/i.test(value);
+
+const resolveEmbedPath = async (target, filePath, imageIndex) => {
+  const normalizedTarget = target.replace(/^\/+/, '');
+  const ext = path.extname(normalizedTarget).toLowerCase();
+  if (ext && !IMAGE_EXTS.has(ext)) {
+    throw new Error(`${filePath}: unsupported image format ${ext} in Obsidian embed`);
+  }
+
+  const hasPath = normalizedTarget.includes('/') || normalizedTarget.includes('\\');
+  const candidates = [];
+  if (hasPath) {
+    candidates.push(path.resolve(path.dirname(filePath), normalizedTarget));
+    candidates.push(path.resolve(inputDir, normalizedTarget));
+  } else {
+    candidates.push(path.resolve(path.dirname(filePath), normalizedTarget));
+  }
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return resolveImageFromIndex(path.basename(normalizedTarget), filePath, imageIndex);
+};
+
+const replaceObsidianImageEmbeds = async (source, filePath, imageIndex) => {
+  const embeds = [];
+  const pattern = /!\[\[([\s\S]+?)\]\]/g;
+  let match = pattern.exec(source);
+  while (match) {
+    embeds.push({ raw: match[0], inner: match[1] });
+    match = pattern.exec(source);
+  }
+
+  if (embeds.length === 0) {
+    return source;
+  }
+
+  let output = source;
+  for (const embed of embeds) {
+    const parts = embed.inner.split('|').map((part) => part.trim());
+    let target = parts.shift() || '';
+    const anchorIndex = target.indexOf('#');
+    if (anchorIndex !== -1) {
+      target = target.slice(0, anchorIndex);
+    }
+    target = target.trim();
+    if (!target) {
+      throw new Error(`${filePath}: empty Obsidian embed`);
+    }
+
+    const alt = parts.find((part) => part && !isObsidianSizeHint(part)) || '';
+    const resolved = await resolveEmbedPath(target, filePath, imageIndex);
+    if (!resolved) {
+      throw new Error(`${filePath}: unresolved Obsidian image "${target}"`);
+    }
+    const relative = toPosixPath(path.relative(path.dirname(filePath), resolved));
+    const encoded = encodeURI(relative);
+    const replacement = `![${alt}](${encoded})`;
+    output = output.replace(embed.raw, replacement);
+  }
+
+  return output;
+};
+
+const preprocessObsidianContent = async (source, filePath, imageIndex) => {
+  const stripped = stripObsidianComments(source);
+  return replaceObsidianImageEmbeds(stripped, filePath, imageIndex);
 };
 
 const buildPictureHtml = (picture, options = {}) => {
@@ -481,14 +626,26 @@ const buildAboutUrl = (lang, defaultLang, aboutGroup) => {
   return buildPostUrl('about', targetLang, aboutGroup.defaultLang);
 };
 
-const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOptions }) => {
+const renderMarkdownWithImages = async ({
+  content,
+  filePath,
+  imageCache,
+  imageOptions,
+  imageIndex,
+}) => {
   const renderer = createMarkdownRenderer({ allowHtml: false });
   const { md } = renderer;
   const env = {};
-  const tokens = md.parse(content, env);
+  const processedContent = await preprocessObsidianContent(content, filePath, imageIndex);
+  const tokens = md.parse(processedContent, env);
 
-  const imageSources = tokens
-    .filter((token) => token.type === 'image')
+  const collectImageTokens = (tokenList) =>
+    tokenList.flatMap((token) => {
+      const nested = token.children ? collectImageTokens(token.children) : [];
+      return token.type === 'image' ? [token, ...nested] : nested;
+    });
+
+  const imageSources = collectImageTokens(tokens)
     .map((token) => token.attrGet('src'))
     .filter(Boolean);
 
@@ -497,13 +654,25 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
       if (isExternalAsset(src)) {
         const cacheKey = `external:${src}`;
         if (!imageCache.has(cacheKey)) {
-          imageCache.set(cacheKey, processImageSource(src, imageOptions));
+          imageCache.set(
+            cacheKey,
+            (async () => {
+              try {
+                return { ...(await processImageSource(src, imageOptions)), external: false };
+              } catch (error) {
+                return { picture: null, external: true };
+              }
+            })()
+          );
         }
         const processed = await imageCache.get(cacheKey);
-        return { src, picture: processed.picture };
+        return { src, picture: processed.picture, external: processed.external };
       }
 
-      const resolved = resolveLocalAsset(src, filePath);
+      const normalizedSrc = decodeUriSafe(src);
+      const resolved =
+        resolveLocalAsset(normalizedSrc, filePath) ||
+        resolveImageFromIndex(path.basename(normalizedSrc), filePath, imageIndex);
       if (!resolved) {
         throw new Error(`${filePath}: image must live under vault (${src})`);
       }
@@ -515,7 +684,7 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
         imageCache.set(resolved, processImage(resolved, imageOptions));
       }
       const processed = await imageCache.get(resolved);
-      return { src, picture: processed.picture };
+      return { src, picture: processed.picture, external: false };
     })
   );
 
@@ -529,6 +698,11 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
     if (entry && entry.picture) {
       return buildPictureHtml(entry.picture, { alt, imgClass: 'article-image' });
     }
+    if (entry && entry.external) {
+      const title = token.attrGet('title');
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+      return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"${titleAttr} />`;
+    }
     return '';
   };
 
@@ -538,6 +712,7 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
 const copyThemeAssets = async (targetDir) => {
   await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(targetDir, 'styles.css'));
   await fs.copyFile(path.join(themeDir, 'app.js'), path.join(targetDir, 'app.js'));
+  await fs.copyFile(path.join(themeDir, 'favicon.svg'), path.join(targetDir, 'favicon.svg'));
 };
 
 const writePage = async (targetDir, html) => {
@@ -581,6 +756,7 @@ const run = async () => {
   const defaultLang = languages.includes('zh') ? 'zh' : languages[0] || 'en';
 
   const imageCache = new Map();
+  const imageIndex = await buildImageIndex(inputDir);
   const imageOptions = {
     outputBase: path.join(buildDir, 'assets'),
     sourceBase: inputDir,
@@ -621,6 +797,7 @@ const run = async () => {
         filePath: post.sourcePath,
         imageCache,
         imageOptions,
+        imageIndex,
       });
 
       return {
