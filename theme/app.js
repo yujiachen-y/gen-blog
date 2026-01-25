@@ -129,6 +129,13 @@ const updateLangSwitchers = (lang) => {
   });
 };
 
+const setLangSwitcherVisibility = () => {
+  const mode = pageData.langSwitcherMode || 'toggle';
+  langSwitchers.forEach((switcher) => {
+    switcher.classList.toggle('is-hidden', mode === 'hidden');
+  });
+};
+
 const setLanguagePreference = (lang) => {
   const normalized = normalizeLanguage(lang);
   if (normalized) {
@@ -394,6 +401,7 @@ document.addEventListener('keydown', (event) => {
 
 const init = async () => {
   updateLangSwitchers(state.language);
+  setLangSwitcherVisibility();
   initTheme();
   await initFilters();
   restoreScrollPosition();

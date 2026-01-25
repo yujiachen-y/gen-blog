@@ -185,6 +185,10 @@ body[data-page='post'] .article-page {
   align-items: center;
 }
 
+.lang-switcher.is-hidden {
+  display: none;
+}
+
 .lang-toggle {
   border: 1px solid var(--card-border);
   background: var(--card-bg-hover);
