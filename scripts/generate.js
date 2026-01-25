@@ -45,6 +45,15 @@ const slugifyPath = (value) =>
     .filter(Boolean)
     .join('/');
 
+const slugifyHeading = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+
 const formatDate = (value) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -405,6 +414,22 @@ const buildArticleHtml = (post) => {
   )}</div>\n  <h1 class="article-hero">${escapeHtml(post.title)}</h1>\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
 };
 
+const buildTocHtml = (tocItems, lang) => {
+  if (!tocItems || tocItems.length === 0) {
+    return '';
+  }
+  const title = lang === 'zh' ? '目录' : 'Contents';
+  const items = tocItems
+    .map(
+      (item) =>
+        `\n      <li class="toc-item toc-level-${item.level}"><a href="#${escapeHtml(
+          item.id
+        )}">${escapeHtml(item.text || item.id)}</a></li>`
+    )
+    .join('');
+  return `\n    <aside class="article-toc" data-toc>\n      <button class="toc-toggle" type="button" data-toc-toggle aria-expanded="false">\n        <span class="toc-toggle-label">${escapeHtml(title)}</span>\n        <span class="toc-toggle-icon" aria-hidden="true">⌄</span>\n      </button>\n      <div class="toc-panel" data-toc-panel>\n        <div class="toc-title">${escapeHtml(title)}</div>\n        <ol class="toc-list">${items}\n        </ol>\n      </div>\n    </aside>\n  `;
+};
+
 const buildCardHtml = (post) => {
   const categoryLabel = post.categories[0] || 'General';
   const coverHtml = post.coverPicture
@@ -650,6 +675,32 @@ const renderMarkdownWithImages = async ({
   const processedContent = await preprocessObsidianContent(content, filePath, imageIndex);
   const tokens = md.parse(processedContent, env);
 
+  const toc = [];
+  const headingCounts = new Map();
+  tokens.forEach((token, idx) => {
+    if (token.type !== 'heading_open') {
+      return;
+    }
+    const level = Number(token.tag.replace('h', ''));
+    if (!Number.isFinite(level) || level < 1 || level > 4) {
+      return;
+    }
+    const inline = tokens[idx + 1];
+    if (!inline || inline.type !== 'inline') {
+      return;
+    }
+    const text = (inline.children || [])
+      .map((child) => (child.type === 'text' || child.type === 'code_inline' ? child.content : ''))
+      .join('')
+      .trim();
+    const baseId = slugifyHeading(text) || `section-${toc.length + 1}`;
+    const nextCount = (headingCounts.get(baseId) || 0) + 1;
+    headingCounts.set(baseId, nextCount);
+    const id = nextCount === 1 ? baseId : `${baseId}-${nextCount}`;
+    token.attrSet('id', id);
+    toc.push({ level, id, text });
+  });
+
   const collectImageTokens = (tokenList) =>
     tokenList.flatMap((token) => {
       const nested = token.children ? collectImageTokens(token.children) : [];
@@ -717,7 +768,7 @@ const renderMarkdownWithImages = async ({
     return '';
   };
 
-  return md.renderer.render(tokens, md.options, env);
+  return { html: md.renderer.render(tokens, md.options, env), toc };
 };
 
 const copyThemeAssets = async (targetDir) => {
@@ -820,18 +871,22 @@ const run = async () => {
         }
       }
 
-      const contentHtml = await renderMarkdownWithImages({
+      const { html: contentHtml, toc } = await renderMarkdownWithImages({
         content: post.content,
         filePath: post.sourcePath,
         imageCache,
         imageOptions,
         imageIndex,
       });
+      const tocHtml = buildTocHtml(toc, post.lang);
+      const tocLayoutClass = tocHtml ? 'has-toc' : 'no-toc';
 
       return {
         ...post,
         coverPicture,
         contentHtml,
+        tocHtml,
+        tocLayoutClass,
       };
     })
   );
@@ -920,6 +975,8 @@ const run = async () => {
         ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
         SITE_TITLE: siteTitle,
         ARTICLE_CONTENT: articleHtml,
+        TOC: post.tocHtml,
+        TOC_LAYOUT_CLASS: post.tocLayoutClass,
         LANG_SWITCH_MODE: post.langSwitchUrl ? 'toggle' : 'hidden',
         PAGE_DATA: JSON.stringify(pageData, null, 2),
       });

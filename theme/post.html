@@ -112,8 +112,11 @@
     </div>
 
     <main class="article-page">
-      <div class="article-content">
-        {{ARTICLE_CONTENT}}
+      <div class="article-layout {{TOC_LAYOUT_CLASS}}">
+        {{TOC}}
+        <div class="article-content">
+          {{ARTICLE_CONTENT}}
+        </div>
       </div>
     </main>
 
