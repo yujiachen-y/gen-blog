@@ -2,11 +2,11 @@
 
 ## Common Errors and Fixes
 
-- `missing blog_publish`
-  - Add `blog_publish: true` (or `false` if you want to exclude the note).
-
 - `blog_publish must be true or false`
   - Use a boolean, not a string.
+
+- Notes not showing up
+  - Add `blog_publish: true` to publish; missing `blog_publish` means the note is ignored.
 
 - `missing blog_title`
   - Provide a non-empty title.

@@ -4,7 +4,7 @@
 
 All published posts must include:
 
-- `blog_publish`: `true` or `false` (only `true` is published)
+- `blog_publish`: `true` or `false` (only `true` is published; missing means ignored)
 - `blog_title`: string
 - `blog_date`: ISO date string (`YYYY-MM-DD` recommended)
 - `blog_lang`: `zh` or `en` (accepts `zh-*` or `en-*` and normalizes)
@@ -47,7 +47,7 @@ Invalid examples:
 
 ## About Page
 
-Use `blog_translation_key: about` and provide `zh` and `en` files.
+Use `blog_translation_key: about`. If missing, the About link falls back to home.
 
 ## Example (Minimal)
 
