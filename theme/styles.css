@@ -20,9 +20,6 @@
   --pill-active-text: #111;
 
   --view-bg: #fff;
-  --close-btn-bg: #fff;
-  --close-btn-text: #222;
-  --close-btn-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 
   --font-ui: 'Inter', sans-serif;
   --font-body: 'Lora', serif;
@@ -55,9 +52,6 @@
   --pill-active-text: #f2f2f2;
 
   --view-bg: #111;
-  --close-btn-bg: #1b1b1b;
-  --close-btn-text: #f2f2f2;
-  --close-btn-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   color-scheme: dark;
 }
 
@@ -83,9 +77,6 @@
     --pill-active-text: #f2f2f2;
 
     --view-bg: #111;
-    --close-btn-bg: #1b1b1b;
-    --close-btn-text: #f2f2f2;
-    --close-btn-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     color-scheme: dark;
   }
 }
@@ -214,7 +205,7 @@ body[data-page='post'] .article-page {
 
 .theme-trigger {
   border: 1px solid var(--card-border);
-  background: var(--close-btn-bg);
+  background: var(--card-bg-hover);
   color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: 0.85rem;
@@ -279,7 +270,7 @@ body[data-page='post'] .article-page {
   border-radius: 16px;
   padding: 0.35rem;
   min-width: 140px;
-  box-shadow: var(--close-btn-shadow);
+  box-shadow: var(--card-shadow);
   opacity: 0;
   transform: translateY(-6px) scale(0.98);
   pointer-events: none;
@@ -668,35 +659,6 @@ body.view-article .navbar .action-controls {
   transform: translateY(0);
 }
 
-.close-btn {
-  position: fixed;
-  top: 2rem;
-  left: 4%;
-  background: var(--close-btn-bg);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.8rem 1.2rem;
-  border-radius: 30px;
-  box-shadow: var(--close-btn-shadow);
-  color: var(--close-btn-text);
-  font-family: var(--font-ui);
-  font-weight: 500;
-  z-index: 101;
-  transition: transform 0.2s;
-  text-decoration: none;
-}
-
-body[data-page='post'] .close-btn {
-  top: 7.25rem;
-}
-
-.close-btn:hover {
-  transform: scale(1.05);
-}
-
 .article-content {
   max-width: 980px;
   margin: 5rem auto 3.5rem;
@@ -904,10 +866,6 @@ body[data-page='post'] .close-btn {
   .about-hero {
     font-size: 2.5rem;
   }
-
-  body[data-page='post'] .close-btn {
-    top: 6.25rem;
-  }
 }
 
 @media (max-width: 600px) {
@@ -917,10 +875,6 @@ body[data-page='post'] .close-btn {
 
   .filter-bar {
     padding: 0 6% 0.5rem;
-  }
-
-  .close-btn {
-    left: 6%;
   }
 
   .filter-pills {
@@ -949,11 +903,6 @@ body[data-page='post'] .close-btn {
     padding: 1rem 6% 2rem;
   }
 
-  body[data-page='post'] .close-btn {
-    top: 5.75rem;
-    left: 1.5rem;
-  }
-
   .card {
     flex-direction: column;
     align-items: flex-start;
@@ -974,16 +923,6 @@ body[data-page='post'] .close-btn {
     width: 100%;
     height: 140px;
     margin: 0;
-  }
-
-  .close-btn {
-    top: 1rem;
-    left: 1rem;
-    padding: 0.6rem 0.8rem;
-  }
-
-  .close-btn .back-text {
-    display: none;
   }
 
   .article-content {
