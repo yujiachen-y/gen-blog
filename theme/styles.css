@@ -156,9 +156,9 @@ body[data-page='post'] .article-page {
 }
 
 .filter-bar {
-  max-width: 720px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 0 5% 0.5rem;
+  padding: 0 4% 0.5rem;
 }
 
 .btn-text {
@@ -413,10 +413,9 @@ body.view-article .navbar .action-controls {
 .grid-container {
   display: flex;
   flex-direction: column;
-  max-width: 720px;
-  /* Tighter reading width */
+  max-width: 980px;
   margin: 0 auto;
-  padding: 2rem 5% 4rem;
+  padding: 1.25rem 4% 2.5rem;
   gap: 0;
   opacity: 1;
   transform: none;
@@ -427,8 +426,8 @@ body.view-article .navbar .action-controls {
 /* List Item */
 .card {
   background: var(--card-bg-hover);
-  border-radius: 16px;
-  padding: 2.5rem 2rem;
+  border-radius: 14px;
+  padding: 1.2rem 1.5rem;
   /* Add horizontal breathing room */
   box-shadow: var(--card-shadow);
   cursor: pointer;
@@ -439,7 +438,7 @@ body.view-article .navbar .action-controls {
   min-height: auto;
   height: auto;
   border: none;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   position: relative;
   overflow: visible;
   transition:
@@ -463,10 +462,10 @@ body.view-article .navbar .action-controls {
 /* Date / Meta */
 .card-date {
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 500;
   color: var(--text-tertiary);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.35rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -475,12 +474,11 @@ body.view-article .navbar .action-controls {
 .card-title {
   font-family: var(--font-body);
   /* Serif for titles */
-  font-size: 1.75rem;
-  /* Larger */
+  font-size: 1.4rem;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.15;
   color: var(--text-primary);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.35rem;
   letter-spacing: -0.02em;
   transition: color 0.2s ease;
   display: -webkit-box;
@@ -488,7 +486,6 @@ body.view-article .navbar .action-controls {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 74px;
 }
 
 .card:hover .card-title {
@@ -500,8 +497,8 @@ body.view-article .navbar .action-controls {
 .card-excerpt {
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: 0.92rem;
+  line-height: 1.4;
   font-weight: 300;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -509,7 +506,6 @@ body.view-article .navbar .action-controls {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 52px;
 }
 
 .card-content-wrapper {
@@ -518,7 +514,7 @@ body.view-article .navbar .action-controls {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-right: 2rem;
+  padding-right: 1.25rem;
   /* Space for image if valid */
 }
 
@@ -526,16 +522,16 @@ body.view-article .navbar .action-controls {
 /* Image in List View */
 .card-image {
   position: relative;
-  width: 140px;
+  width: 110px;
   /* Slightly smaller or square-ish */
-  height: 100px;
+  height: 76px;
   object-fit: cover;
   border-radius: 4px;
   opacity: 1;
   order: 2;
   flex-shrink: 0;
   display: block;
-  margin-left: 2rem;
+  margin-left: 1.25rem;
   /* Clean margin from text */
   transition: transform 0.3s ease;
 }
@@ -551,7 +547,7 @@ body.view-article .navbar .action-controls {
 
 /* Pagination */
 .pagination {
-  max-width: 720px;
+  max-width: 920px;
   margin: 0 auto 4rem;
   padding: 0 5%;
 }
@@ -611,8 +607,7 @@ body.view-article .navbar .action-controls {
 .card.has-image {
   background: var(--card-bg-hover);
   /* Consistent with other cards */
-  padding: 2.5rem 2rem;
-  /* Keep padding consistent */
+  padding: 1.2rem 1.5rem;
 }
 
 /* Ensure content wrapper flows normally */
@@ -703,9 +698,9 @@ body[data-page='post'] .close-btn {
 }
 
 .article-content {
-  max-width: 740px;
-  margin: 6rem auto 4rem;
-  padding: 0 2rem;
+  max-width: 980px;
+  margin: 5rem auto 3.5rem;
+  padding: 0 4%;
 }
 
 .article-page {
@@ -799,9 +794,9 @@ body[data-page='post'] .close-btn {
 }
 
 .article-text-content {
-  max-width: 740px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 4%;
 }
 
 /* Adjust article-content when cover exists */
@@ -894,12 +889,12 @@ body[data-page='post'] .close-btn {
   }
 
   .filter-bar {
-    padding: 0 5% 0.25rem;
+    padding: 0 4% 0.25rem;
   }
 
   .article-content {
-    margin-top: 5rem;
-    padding: 0 1.5rem;
+    margin-top: 4.5rem;
+    padding: 0 4%;
   }
 
   .article-hero {
@@ -921,7 +916,7 @@ body[data-page='post'] .close-btn {
   }
 
   .filter-bar {
-    padding: 0 5% 0.5rem;
+    padding: 0 6% 0.5rem;
   }
 
   .filter-pills {
@@ -947,7 +942,7 @@ body[data-page='post'] .close-btn {
   }
 
   .grid-container {
-    padding: 1.5rem 6% 3rem;
+    padding: 1rem 6% 2rem;
   }
 
   body[data-page='post'] .close-btn {
@@ -958,7 +953,7 @@ body[data-page='post'] .close-btn {
   .card {
     flex-direction: column;
     align-items: flex-start;
-    padding: 1.75rem 1.5rem;
+    padding: 1.2rem 1rem;
   }
 
   .card-content-wrapper {
@@ -973,7 +968,7 @@ body[data-page='post'] .close-btn {
 
   .card-image {
     width: 100%;
-    height: 180px;
+    height: 140px;
     margin: 0;
   }
 
