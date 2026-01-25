@@ -3,7 +3,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
-const DEFAULT_MAX_WIDTH = 2000;
+const DEFAULT_MAX_WIDTH = 680;
+const DEFAULT_MAX_IMAGE_BYTES = 600 * 1024;
+const MIN_IMAGE_WIDTH = 480;
+const RESIZE_STEP = 0.85;
 const DEFAULT_OUTPUT_BASE = path.resolve('dist/assets');
 const DEFAULT_PUBLIC_BASE = '/assets';
 const DEFAULT_REMOTE_DIR = 'remote';
@@ -120,26 +123,58 @@ const processImageInput = async ({ input, imageKind, relativePath }, options) =>
   await ensureDir(outputDir);
 
   const metadata = await buildSharp(input).metadata();
-  const targetSize = calculateTargetSize(metadata, resolvedOptions.maxWidth);
+  const maxWidth = resolvedOptions.maxWidth;
+  const hasDimensions = Boolean(metadata.width && metadata.height);
+  const initialWidth = hasDimensions ? Math.min(maxWidth, metadata.width) : maxWidth;
 
-  const resized = buildSharp(input).rotate().resize({
-    width: resolvedOptions.maxWidth,
-    withoutEnlargement: true,
-  });
+  let currentWidth = initialWidth;
+  let webpBuffer = null;
+  let fallbackBuffer = null;
 
-  const webpPipeline =
-    imageKind === 'jpeg'
-      ? resized.clone().webp({ quality: 80 })
-      : resized.clone().webp({ lossless: true });
+  let shouldResize = true;
+  while (shouldResize) {
+    const resized = buildSharp(input).rotate().resize({
+      width: currentWidth,
+      withoutEnlargement: true,
+    });
 
-  const fallbackPipeline =
-    imageKind === 'jpeg'
-      ? resized.clone().jpeg({ quality: 80, mozjpeg: true })
-      : resized.clone().png({ compressionLevel: 9, adaptiveFiltering: true });
+    const webpPipeline =
+      imageKind === 'jpeg'
+        ? resized.clone().webp({ quality: 70 })
+        : resized.clone().webp({ lossless: true });
+
+    const fallbackPipeline =
+      imageKind === 'jpeg'
+        ? resized.clone().jpeg({ quality: 70, mozjpeg: true })
+        : resized.clone().png({ compressionLevel: 9, adaptiveFiltering: true });
+
+    [webpBuffer, fallbackBuffer] = await Promise.all([
+      webpPipeline.toBuffer(),
+      fallbackPipeline.toBuffer(),
+    ]);
+
+    const largestSize = Math.max(webpBuffer.length, fallbackBuffer.length);
+    if (
+      !hasDimensions ||
+      largestSize <= DEFAULT_MAX_IMAGE_BYTES ||
+      currentWidth <= MIN_IMAGE_WIDTH
+    ) {
+      shouldResize = false;
+      break;
+    }
+    const nextWidth = Math.max(Math.floor(currentWidth * RESIZE_STEP), MIN_IMAGE_WIDTH);
+    if (nextWidth === currentWidth) {
+      shouldResize = false;
+      break;
+    }
+    currentWidth = nextWidth;
+  }
+
+  const targetSize = calculateTargetSize(metadata, currentWidth);
 
   await Promise.all([
-    webpPipeline.toFile(outputPaths.webp.filePath),
-    fallbackPipeline.toFile(outputPaths.fallback.filePath),
+    fs.writeFile(outputPaths.webp.filePath, webpBuffer),
+    fs.writeFile(outputPaths.fallback.filePath, fallbackBuffer),
   ]);
 
   return {

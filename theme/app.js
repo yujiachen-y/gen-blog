@@ -330,6 +330,32 @@ const initFilters = async () => {
   }
 };
 
+const markTallImages = () => {
+  if (pageData.pageType !== 'post') {
+    return;
+  }
+  const images = Array.from(document.querySelectorAll('.article-body img'));
+  if (!images.length) {
+    return;
+  }
+  const tallRatio = 1.35;
+  const apply = (img) => {
+    const { naturalWidth, naturalHeight } = img;
+    if (!naturalWidth || !naturalHeight) {
+      return;
+    }
+    const ratio = naturalHeight / naturalWidth;
+    img.classList.toggle('is-tall', ratio >= tallRatio);
+  };
+  images.forEach((img) => {
+    if (img.complete) {
+      apply(img);
+    } else {
+      img.addEventListener('load', () => apply(img), { once: true });
+    }
+  });
+};
+
 langSwitchers.forEach((switcher) => {
   const toggle = switcher.querySelector('[data-lang-toggle]');
   if (!toggle) {
@@ -405,6 +431,7 @@ const init = async () => {
   initTheme();
   await initFilters();
   restoreScrollPosition();
+  markTallImages();
   window.addEventListener('beforeunload', saveScrollPosition);
 };
 

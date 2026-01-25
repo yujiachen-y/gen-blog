@@ -218,7 +218,7 @@ const shouldPreserveOutput = async (dir) => {
   return hits.some(Boolean);
 };
 
-const syncDirectory = async (sourceDir, targetDir) => {
+const syncDirectory = async (sourceDir, targetDir, preserve = new Set()) => {
   await ensureDir(targetDir);
   const entries = await fs.readdir(sourceDir, { withFileTypes: true });
   await Promise.all(
@@ -232,6 +232,17 @@ const syncDirectory = async (sourceDir, targetDir) => {
       if (entry.isFile()) {
         await fs.copyFile(srcPath, targetPath);
       }
+    })
+  );
+
+  const targetEntries = await fs.readdir(targetDir, { withFileTypes: true });
+  const sourceNames = new Set(entries.map((entry) => entry.name));
+  await Promise.all(
+    targetEntries.map(async (entry) => {
+      if (preserve.has(entry.name) || sourceNames.has(entry.name)) {
+        return;
+      }
+      await fs.rm(path.join(targetDir, entry.name), { recursive: true, force: true });
     })
   );
 };
@@ -778,7 +789,7 @@ const run = async () => {
     outputBase: path.join(buildDir, 'assets'),
     sourceBase: inputDir,
     publicBase: '/assets',
-    maxWidth: 2000,
+    maxWidth: 680,
   };
 
   const processedPosts = await Promise.all(
@@ -1019,7 +1030,7 @@ const run = async () => {
 
   if (preserveOutput) {
     await ensureDir(outputDir);
-    await syncDirectory(buildDir, outputDir);
+    await syncDirectory(buildDir, outputDir, new Set(['.git', 'CNAME', '.nojekyll']));
     await fs.rm(buildDir, { recursive: true, force: true });
   }
 

@@ -3,7 +3,7 @@
   src:
     local('LXGW WenKai'),
     local('LXGW WenKai Regular'),
-    url('/fonts/LXGWWenKai-Regular.ttf') format('truetype');
+    url('/fonts/LXGWWenKai-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -14,7 +14,7 @@
   src:
     local('LXGW WenKai'),
     local('LXGW WenKai Medium'),
-    url('/fonts/LXGWWenKai-Medium.ttf') format('truetype');
+    url('/fonts/LXGWWenKai-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -736,8 +736,12 @@ body.view-article .navbar .action-controls {
 .article-body img {
   max-width: 100%;
   height: auto;
-  max-height: 40vh;
   border-radius: 6px;
+}
+
+.article-body img.is-tall {
+  max-height: 40vh;
+  width: auto;
 }
 
 /* Article Cover Image */
@@ -797,7 +801,7 @@ body.view-article .navbar .action-controls {
 }
 
 @media (max-width: 768px) {
-  .article-body img {
+  .article-body img.is-tall {
     max-height: 50vh;
   }
 }
