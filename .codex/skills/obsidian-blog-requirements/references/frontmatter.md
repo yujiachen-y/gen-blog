@@ -19,7 +19,6 @@ Optional:
 Notes:
 
 - If `blog_publish: false`, the post is excluded and other fields are not required.
-- Every `blog_translation_key` must have both `zh` and `en` versions.
 - `blog_category` allows multiple categories. The first item is used as `primaryCategory` in output.
 
 ## Image Sources

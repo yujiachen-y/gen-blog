@@ -26,9 +26,6 @@
 - `missing blog_excerpt`
   - Add a short summary string.
 
-- `Missing zh/en translations for: ...`
-  - Ensure each `blog_translation_key` has both `zh` and `en` files.
-
 ## Image Source Tips
 
 - Prefer relative paths for local files.

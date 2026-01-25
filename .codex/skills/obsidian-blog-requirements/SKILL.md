@@ -19,7 +19,6 @@ Use this skill to validate Obsidian notes for gen-blog. It defines the required 
 
 - **Filter rule:** A note is included only when `blog_publish: true`. Missing `blog_publish` is an error.
 - **Required fields for published posts:** `blog_title`, `blog_date`, `blog_lang`, `blog_translation_key`, `blog_category`, `blog_excerpt`.
-- **Language pairing:** Every `blog_translation_key` must have both `zh` and `en` posts.
 - **Translation key format:** Lowercase slug or path (`a-z0-9` + `-`), no spaces; see examples in `references/frontmatter.md`.
 - **Categories:** `blog_category` is a non-empty list; multiple categories are allowed; first item is used as `primaryCategory` in output.
 - **About page:** Use `blog_translation_key: about` and provide both `zh` and `en`.

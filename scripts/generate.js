@@ -411,14 +411,6 @@ const buildPostGroups = (posts) => {
     };
   });
 
-  const missingLangs = groups
-    .filter((group) => !group.languages.includes('zh') || !group.languages.includes('en'))
-    .map((group) => group.translationKey);
-
-  if (missingLangs.length > 0) {
-    throw new Error(`Missing zh/en translations for: ${missingLangs.join(', ')}`);
-  }
-
   return groups;
 };
 
@@ -668,6 +660,7 @@ const run = async () => {
         pageType: post.translationKey === 'about' ? 'about' : 'post',
         lang: post.lang,
         langSwitchUrl: post.langSwitchUrl || null,
+        langSwitcherMode: post.langSwitchUrl ? 'toggle' : 'hidden',
       };
 
       const html = renderTemplate(postTemplate, {
@@ -677,6 +670,7 @@ const run = async () => {
         HOME_URL: buildListUrl(post.lang, defaultLang, 1),
         ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
         ARTICLE_CONTENT: articleHtml,
+        LANG_SWITCH_MODE: post.langSwitchUrl ? 'toggle' : 'hidden',
         PAGE_DATA: JSON.stringify(pageData, null, 2),
       });
 
@@ -729,6 +723,7 @@ const run = async () => {
         pageType: 'list',
         lang: page.lang,
         langSwitchUrl: otherLang ? buildListUrl(otherLang, defaultLang, langSwitchPage) : null,
+        langSwitcherMode: otherLang ? 'toggle' : 'hidden',
         filterIndexUrl: '/posts/filter-index.json',
         page: page.page,
         totalPages: page.totalPages,
@@ -756,6 +751,7 @@ const run = async () => {
         ABOUT_URL: buildAboutUrl(page.lang, defaultLang, aboutGroup),
         LIST_CONTENT: listHtml,
         PAGINATION: paginationHtml,
+        LANG_SWITCH_MODE: otherLang ? 'toggle' : 'hidden',
         PAGE_DATA: JSON.stringify(pageData, null, 2),
       });
 
