@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import matter from 'gray-matter';
 import { createMarkdownRenderer } from './markdown.js';
@@ -58,6 +59,15 @@ const writeFile = (filePath, data) => fs.writeFile(filePath, data, 'utf8');
 
 const writeJson = (filePath, data) =>
   fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+
+const pathExists = async (filePath) => {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 
 const readTemplate = async (fileName) => fs.readFile(path.join(themeDir, fileName), 'utf8');
 
@@ -137,6 +147,33 @@ const collectMarkdownFiles = async (dir) => {
   );
 
   return nested.flat();
+};
+
+const shouldPreserveOutput = async (dir) => {
+  if (!(await pathExists(dir))) {
+    return false;
+  }
+  const markers = ['.git', 'CNAME', '.nojekyll'];
+  const hits = await Promise.all(markers.map((marker) => pathExists(path.join(dir, marker))));
+  return hits.some(Boolean);
+};
+
+const syncDirectory = async (sourceDir, targetDir) => {
+  await ensureDir(targetDir);
+  const entries = await fs.readdir(sourceDir, { withFileTypes: true });
+  await Promise.all(
+    entries.map(async (entry) => {
+      const srcPath = path.join(sourceDir, entry.name);
+      const targetPath = path.join(targetDir, entry.name);
+      if (entry.isDirectory()) {
+        await syncDirectory(srcPath, targetPath);
+        return;
+      }
+      if (entry.isFile()) {
+        await fs.copyFile(srcPath, targetPath);
+      }
+    })
+  );
 };
 
 const resolveTranslationKey = (value) => {
@@ -313,8 +350,9 @@ const loadPosts = async () => {
 
       const blogPublish = data.blog_publish;
       if (blogPublish === undefined) {
-        fileErrors.push(`${filePath}: missing blog_publish`);
-      } else if (blogPublish !== true && blogPublish !== false) {
+        return null;
+      }
+      if (blogPublish !== true && blogPublish !== false) {
         fileErrors.push(`${filePath}: blog_publish must be true or false`);
       }
       if (blogPublish === false) {
@@ -497,9 +535,9 @@ const renderMarkdownWithImages = async ({ content, filePath, imageCache, imageOp
   return md.renderer.render(tokens, md.options, env);
 };
 
-const copyThemeAssets = async () => {
-  await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(outputDir, 'styles.css'));
-  await fs.copyFile(path.join(themeDir, 'app.js'), path.join(outputDir, 'app.js'));
+const copyThemeAssets = async (targetDir) => {
+  await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(targetDir, 'styles.css'));
+  await fs.copyFile(path.join(themeDir, 'app.js'), path.join(targetDir, 'app.js'));
 };
 
 const writePage = async (targetDir, html) => {
@@ -515,18 +553,24 @@ const run = async () => {
   const siteConfig = await readSiteConfig();
   const siteUrl = getArgValue('--site-url', siteConfig.siteUrl || null);
   const siteTitle = siteConfig.siteTitle || 'Gen Blog';
+  const preserveOutput = await shouldPreserveOutput(outputDir);
+  const buildDir = preserveOutput
+    ? await fs.mkdtemp(path.join(os.tmpdir(), 'gen-blog-'))
+    : outputDir;
 
-  await fs.rm(outputDir, { recursive: true, force: true });
-  await ensureDir(outputDir);
-  await ensureDir(path.join(outputDir, 'posts'));
-  await ensureDir(path.join(outputDir, 'assets'));
+  if (!preserveOutput) {
+    await fs.rm(outputDir, { recursive: true, force: true });
+  }
+  await ensureDir(buildDir);
+  await ensureDir(path.join(buildDir, 'posts'));
+  await ensureDir(path.join(buildDir, 'assets'));
 
   const [listTemplate, postTemplate] = await Promise.all([
     readTemplate('index.html'),
     readTemplate('post.html'),
   ]);
 
-  await copyThemeAssets();
+  await copyThemeAssets(buildDir);
 
   const posts = await loadPosts();
   const groups = buildPostGroups(posts);
@@ -538,7 +582,7 @@ const run = async () => {
 
   const imageCache = new Map();
   const imageOptions = {
-    outputBase: path.join(outputDir, 'assets'),
+    outputBase: path.join(buildDir, 'assets'),
     sourceBase: inputDir,
     publicBase: '/assets',
     maxWidth: 2000,
@@ -642,7 +686,7 @@ const run = async () => {
     }))
   );
 
-  await writeJson(path.join(outputDir, 'posts', 'filter-index.json'), filterIndex);
+  await writeJson(path.join(buildDir, 'posts', 'filter-index.json'), filterIndex);
 
   await Promise.all(
     postPages.map(async (post) => {
@@ -669,12 +713,13 @@ const run = async () => {
         LANG: post.lang,
         HOME_URL: buildListUrl(post.lang, defaultLang, 1),
         ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
+        SITE_TITLE: siteTitle,
         ARTICLE_CONTENT: articleHtml,
         LANG_SWITCH_MODE: post.langSwitchUrl ? 'toggle' : 'hidden',
         PAGE_DATA: JSON.stringify(pageData, null, 2),
       });
 
-      const targetDir = path.join(outputDir, stripLeadingSlash(post.url));
+      const targetDir = path.join(buildDir, stripLeadingSlash(post.url));
       await writePage(targetDir, html);
     })
   );
@@ -749,13 +794,14 @@ const run = async () => {
         LANG: page.lang,
         HOME_URL: buildListUrl(page.lang, defaultLang, 1),
         ABOUT_URL: buildAboutUrl(page.lang, defaultLang, aboutGroup),
+        SITE_TITLE: siteTitle,
         LIST_CONTENT: listHtml,
         PAGINATION: paginationHtml,
         LANG_SWITCH_MODE: otherLang ? 'toggle' : 'hidden',
         PAGE_DATA: JSON.stringify(pageData, null, 2),
       });
 
-      const targetDir = path.join(outputDir, stripLeadingSlash(pageUrl));
+      const targetDir = path.join(buildDir, stripLeadingSlash(pageUrl));
       await writePage(targetDir, html);
     })
   );
@@ -770,11 +816,17 @@ const run = async () => {
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
       .map((url) => `  <url><loc>${url}</loc></url>`)
       .join('\n')}\n</urlset>\n`;
-    await writeFile(path.join(outputDir, 'sitemap.xml'), sitemap);
+    await writeFile(path.join(buildDir, 'sitemap.xml'), sitemap);
     await writeFile(
-      path.join(outputDir, 'robots.txt'),
+      path.join(buildDir, 'robots.txt'),
       `User-agent: *\nAllow: /\nSitemap: ${buildUrl(siteUrl, '/sitemap.xml')}\n`
     );
+  }
+
+  if (preserveOutput) {
+    await ensureDir(outputDir);
+    await syncDirectory(buildDir, outputDir);
+    await fs.rm(buildDir, { recursive: true, force: true });
   }
 
   console.log(`Generated ${postPages.length} posts in ${outputDir}`);
