@@ -45,6 +45,7 @@
 
   --font-ui: 'Inter', 'LXGW WenKai', sans-serif;
   --font-body: 'LXGW WenKai', 'Lora', serif;
+  --nav-height: 6.5rem;
   --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   color-scheme: light;
 }
@@ -118,6 +119,10 @@ body {
   overflow-x: hidden;
 }
 
+#root {
+  padding-top: var(--nav-height);
+}
+
 body[data-page='post'] {
   background-color: var(--view-bg);
   --bg-color: var(--view-bg);
@@ -130,6 +135,13 @@ body[data-page='post'] .article-page {
 
 /* Navbar */
 .navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 120;
+  background: var(--bg-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -960,6 +972,10 @@ body.view-article .navbar .action-controls {
 
 /* Responsive */
 @media (max-width: 900px) {
+  :root {
+    --nav-height: 5rem;
+  }
+
   .navbar {
     align-items: flex-start;
     gap: 1rem;
@@ -1016,6 +1032,10 @@ body.view-article .navbar .action-controls {
 }
 
 @media (max-width: 600px) {
+  :root {
+    --nav-height: 4.5rem;
+  }
+
   .navbar {
     padding: 1.5rem 5% 1rem;
   }
