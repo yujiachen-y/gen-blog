@@ -774,7 +774,12 @@ const renderMarkdownWithImages = async ({
 const copyThemeAssets = async (targetDir) => {
   await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(targetDir, 'styles.css'));
   await fs.copyFile(path.join(themeDir, 'app.js'), path.join(targetDir, 'app.js'));
-  await fs.copyFile(path.join(themeDir, 'favicon.svg'), path.join(targetDir, 'favicon.svg'));
+  await fs.copyFile(path.join(themeDir, 'favicon.png'), path.join(targetDir, 'favicon.png'));
+  await fs.copyFile(path.join(themeDir, 'favicon-32.png'), path.join(targetDir, 'favicon-32.png'));
+  await fs.copyFile(
+    path.join(themeDir, 'apple-touch-icon.png'),
+    path.join(targetDir, 'apple-touch-icon.png')
+  );
   const fontsDir = path.join(themeDir, 'fonts');
   try {
     const entries = await fs.readdir(fontsDir, { withFileTypes: true });
