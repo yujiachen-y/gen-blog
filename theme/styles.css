@@ -44,6 +44,17 @@
   --view-bg: #fff;
   --callout-bg: #f1f1f1;
   --callout-border: rgba(0, 0, 0, 0.08);
+  --code-bg: #f1f1f1;
+  --code-border: rgba(0, 0, 0, 0.08);
+  --code-text: #1c1c1c;
+  --code-keyword: #9a3e00;
+  --code-string: #0b6b4f;
+  --code-comment: #6a6a6a;
+  --code-number: #1b6ca8;
+  --code-title: #2a5d9f;
+  --code-built-in: #8a5b00;
+  --code-symbol: #a23d3d;
+  --code-attr: #0b5f72;
 
   --font-ui: 'Inter', 'LXGW WenKai', sans-serif;
   --font-body: 'LXGW WenKai', 'Lora', serif;
@@ -79,6 +90,17 @@
   --view-bg: #111;
   --callout-bg: rgba(255, 255, 255, 0.06);
   --callout-border: rgba(255, 255, 255, 0.12);
+  --code-bg: #1c1c1c;
+  --code-border: rgba(255, 255, 255, 0.12);
+  --code-text: #e6e6e6;
+  --code-keyword: #ffb454;
+  --code-string: #9be6b2;
+  --code-comment: #7a7a7a;
+  --code-number: #8ad3ff;
+  --code-title: #8ab4ff;
+  --code-built-in: #ffd27d;
+  --code-symbol: #ff9aa2;
+  --code-attr: #7bdff2;
   color-scheme: dark;
 }
 
@@ -106,6 +128,17 @@
     --view-bg: #111;
     --callout-bg: rgba(255, 255, 255, 0.06);
     --callout-border: rgba(255, 255, 255, 0.12);
+    --code-bg: #1c1c1c;
+    --code-border: rgba(255, 255, 255, 0.12);
+    --code-text: #e6e6e6;
+    --code-keyword: #ffb454;
+    --code-string: #9be6b2;
+    --code-comment: #7a7a7a;
+    --code-number: #8ad3ff;
+    --code-title: #8ab4ff;
+    --code-built-in: #ffd27d;
+    --code-symbol: #ff9aa2;
+    --code-attr: #7bdff2;
     color-scheme: dark;
   }
 }
@@ -886,6 +919,92 @@ body.view-article .navbar .action-controls {
 .article-body blockquote.callout ul,
 .article-body blockquote.callout ol {
   margin-bottom: 0;
+}
+
+.article-body h1,
+.article-body h2,
+.article-body h3,
+.article-body h4,
+.article-body h5,
+.article-body h6 {
+  scroll-margin-top: calc(var(--nav-height) + 1.5rem);
+}
+
+.article-body pre {
+  margin: 1.5rem 0;
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.article-body code {
+  font-family:
+    'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.95rem;
+}
+
+.article-body pre code {
+  font-size: 0.95rem;
+}
+
+.article-body :not(pre) > code {
+  background: var(--card-bg-hover);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 0.1rem 0.35rem;
+  color: var(--text-primary);
+}
+
+.article-body pre.hljs {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  color: var(--code-text);
+  padding: 1rem 1.1rem;
+}
+
+.article-body pre.hljs code {
+  color: inherit;
+}
+
+.article-body pre.hljs .hljs-comment,
+.article-body pre.hljs .hljs-quote {
+  color: var(--code-comment);
+}
+
+.article-body pre.hljs .hljs-keyword,
+.article-body pre.hljs .hljs-selector-tag,
+.article-body pre.hljs .hljs-literal {
+  color: var(--code-keyword);
+}
+
+.article-body pre.hljs .hljs-string,
+.article-body pre.hljs .hljs-doctag {
+  color: var(--code-string);
+}
+
+.article-body pre.hljs .hljs-number,
+.article-body pre.hljs .hljs-regexp {
+  color: var(--code-number);
+}
+
+.article-body pre.hljs .hljs-title,
+.article-body pre.hljs .hljs-section,
+.article-body pre.hljs .hljs-function .hljs-title {
+  color: var(--code-title);
+}
+
+.article-body pre.hljs .hljs-built_in,
+.article-body pre.hljs .hljs-type {
+  color: var(--code-built-in);
+}
+
+.article-body pre.hljs .hljs-attr,
+.article-body pre.hljs .hljs-attribute {
+  color: var(--code-attr);
+}
+
+.article-body pre.hljs .hljs-symbol,
+.article-body pre.hljs .hljs-bullet {
+  color: var(--code-symbol);
 }
 
 .article-body picture {
