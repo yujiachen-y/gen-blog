@@ -42,6 +42,8 @@
   --pill-active-text: #111;
 
   --view-bg: #fff;
+  --callout-bg: #f1f1f1;
+  --callout-border: rgba(0, 0, 0, 0.08);
 
   --font-ui: 'Inter', 'LXGW WenKai', sans-serif;
   --font-body: 'LXGW WenKai', 'Lora', serif;
@@ -75,6 +77,8 @@
   --pill-active-text: #f2f2f2;
 
   --view-bg: #111;
+  --callout-bg: rgba(255, 255, 255, 0.06);
+  --callout-border: rgba(255, 255, 255, 0.12);
   color-scheme: dark;
 }
 
@@ -100,6 +104,8 @@
     --pill-active-text: #f2f2f2;
 
     --view-bg: #111;
+    --callout-bg: rgba(255, 255, 255, 0.06);
+    --callout-border: rgba(255, 255, 255, 0.12);
     color-scheme: dark;
   }
 }
@@ -828,6 +834,58 @@ body.view-article .navbar .action-controls {
 
 .article-body p {
   margin-bottom: 1.5rem;
+}
+
+.article-body ul,
+.article-body ol {
+  margin: 0 0 1.5rem 1.5rem;
+  padding-left: 1.1rem;
+}
+
+.article-body li {
+  margin: 0.35rem 0;
+}
+
+.article-body ul ul,
+.article-body ol ol,
+.article-body ul ol,
+.article-body ol ul {
+  margin: 0.4rem 0 0.6rem 1.2rem;
+}
+
+.article-body blockquote {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 3px solid var(--text-tertiary);
+  background: var(--card-bg-hover);
+  color: var(--text-secondary);
+  border-radius: 10px;
+}
+
+.article-body blockquote p {
+  margin: 0;
+}
+
+.article-body blockquote.callout {
+  border: 1px solid var(--callout-border);
+  border-radius: 12px;
+  background: var(--callout-bg);
+  padding: 1.1rem 1.2rem;
+}
+
+.article-body blockquote.callout > p:first-child {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.article-body blockquote.callout > p:last-child {
+  margin-bottom: 0;
+}
+
+.article-body blockquote.callout ul,
+.article-body blockquote.callout ol {
+  margin-bottom: 0;
 }
 
 .article-body picture {

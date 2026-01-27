@@ -54,6 +54,60 @@ const slugifyHeading = (value) =>
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '');
 
+const applyCalloutTokens = (tokens) => {
+  const calloutPattern = /^\[!(\w+)\]\s*/;
+  tokens.forEach((token, index) => {
+    if (token.type !== 'blockquote_open') {
+      return;
+    }
+    const inlineToken = tokens[index + 2];
+    if (!inlineToken || inlineToken.type !== 'inline') {
+      return;
+    }
+    const match = inlineToken.content.match(calloutPattern);
+    if (!match) {
+      return;
+    }
+    const type = match[1].toLowerCase();
+    const markerLength = match[0].length;
+    const existingClass = token.attrGet('class');
+    token.attrSet(
+      'class',
+      existingClass ? `${existingClass} callout callout-${type}` : `callout callout-${type}`
+    );
+    inlineToken.content = inlineToken.content.slice(markerLength);
+    if (inlineToken.children && inlineToken.children.length > 0) {
+      let remaining = markerLength;
+      inlineToken.children.forEach((child) => {
+        if (remaining <= 0 || child.type !== 'text') {
+          return;
+        }
+        const { content } = child;
+        if (content.length <= remaining) {
+          remaining -= content.length;
+          child.content = '';
+          return;
+        }
+        child.content = content.slice(remaining);
+        remaining = 0;
+      });
+      const hasContent = inlineToken.children.some(
+        (child) => child.content && child.content.trim()
+      );
+      if (!hasContent) {
+        inlineToken.children = [
+          {
+            type: 'text',
+            content: type.toUpperCase(),
+            level: inlineToken.level,
+          },
+        ];
+        inlineToken.content = type.toUpperCase();
+      }
+    }
+  });
+};
+
 const formatDate = (value) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -308,8 +362,172 @@ const resolveLocalAsset = (src, filePath) => {
   return resolved;
 };
 
-const stripObsidianComments = (value) =>
-  value.replace(/%%[\s\S]*?%%/g, '').replace(/<!--[\s\S]*?-->/g, '');
+const convertHtmlAsidesToCallouts = (value) => {
+  const lines = value.split('\n');
+  const output = [];
+  let inAside = false;
+  let asideLines = [];
+  let inFence = false;
+  let fenceToken = '';
+
+  const flushAside = () => {
+    const normalized = asideLines.map((line) => line.replace(/\r$/, ''));
+    asideLines = [];
+    inAside = false;
+
+    let start = 0;
+    let end = normalized.length;
+    while (start < end && normalized[start].trim() === '') {
+      start += 1;
+    }
+    while (end > start && normalized[end - 1].trim() === '') {
+      end -= 1;
+    }
+    const body = normalized.slice(start, end);
+    if (body.length === 0) {
+      output.push('> [!note]');
+      return;
+    }
+    const title = body[0].trim();
+    output.push(title ? `> [!note] ${title}` : '> [!note]');
+    body.slice(1).forEach((line) => {
+      if (line.trim() === '') {
+        output.push('>');
+        return;
+      }
+      output.push(`> ${line}`);
+    });
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    const fenceMatch = trimmed.match(/^(?:```|~~~)/);
+    if (!inAside && fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceToken = fenceMatch[0];
+      } else if (trimmed.startsWith(fenceToken)) {
+        inFence = false;
+      }
+      output.push(line);
+      return;
+    }
+
+    if (!inAside && inFence) {
+      output.push(line);
+      return;
+    }
+
+    if (inAside) {
+      const lower = line.toLowerCase();
+      const endIndex = lower.indexOf('</aside>');
+      if (endIndex === -1) {
+        asideLines.push(line);
+        return;
+      }
+      asideLines.push(line.slice(0, endIndex));
+      flushAside();
+      const after = line.slice(endIndex + 8);
+      if (after.trim()) {
+        output.push(after);
+      }
+      return;
+    }
+
+    const lower = line.toLowerCase();
+    const startIndex = lower.indexOf('<aside');
+    if (startIndex === -1) {
+      output.push(line);
+      return;
+    }
+    const tagEnd = lower.indexOf('>', startIndex);
+    if (tagEnd === -1) {
+      output.push(line);
+      return;
+    }
+    const before = line.slice(0, startIndex);
+    if (before.trim()) {
+      output.push(before);
+    }
+    const afterTag = line.slice(tagEnd + 1);
+    const afterLower = afterTag.toLowerCase();
+    const endIndex = afterLower.indexOf('</aside>');
+    if (endIndex !== -1) {
+      asideLines.push(afterTag.slice(0, endIndex));
+      flushAside();
+      const after = afterTag.slice(endIndex + 8);
+      if (after.trim()) {
+        output.push(after);
+      }
+      return;
+    }
+    inAside = true;
+    asideLines.push(afterTag);
+  });
+
+  if (inAside) {
+    flushAside();
+  }
+
+  return output.join('\n');
+};
+
+const stripObsidianComments = (value) => {
+  const lines = value.split('\n');
+  const output = [];
+  let inBlock = false;
+  let inFence = false;
+  let fenceToken = '';
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    const fenceMatch = trimmed.match(/^(?:```|~~~)/);
+    if (fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceToken = fenceMatch[0];
+      } else if (trimmed.startsWith(fenceToken)) {
+        inFence = false;
+      }
+      output.push(line);
+      return;
+    }
+
+    if (inFence) {
+      output.push(line);
+      return;
+    }
+
+    let cursor = 0;
+    let buffer = '';
+
+    while (cursor < line.length) {
+      const idx = line.indexOf('%%', cursor);
+      if (idx === -1) {
+        if (!inBlock) {
+          buffer += line.slice(cursor);
+        }
+        break;
+      }
+
+      if (!inBlock) {
+        buffer += line.slice(cursor, idx);
+        inBlock = true;
+      } else {
+        inBlock = false;
+      }
+
+      cursor = idx + 2;
+    }
+
+    output.push(buffer);
+  });
+
+  return output
+    .join('\n')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^[ \t]*#{1,6}[ \t]*$/gm, '');
+};
 
 const isObsidianSizeHint = (value) => /^\d+(x\d+)?$/i.test(value);
 
@@ -379,7 +597,8 @@ const replaceObsidianImageEmbeds = async (source, filePath, imageIndex) => {
 };
 
 const preprocessObsidianContent = async (source, filePath, imageIndex) => {
-  const stripped = stripObsidianComments(source);
+  const withAsides = convertHtmlAsidesToCallouts(source);
+  const stripped = stripObsidianComments(withAsides);
   return replaceObsidianImageEmbeds(stripped, filePath, imageIndex);
 };
 
@@ -674,6 +893,7 @@ const renderMarkdownWithImages = async ({
   const env = {};
   const processedContent = await preprocessObsidianContent(content, filePath, imageIndex);
   const tokens = md.parse(processedContent, env);
+  applyCalloutTokens(tokens);
 
   const toc = [];
   const headingCounts = new Map();
@@ -689,10 +909,14 @@ const renderMarkdownWithImages = async ({
     if (!inline || inline.type !== 'inline') {
       return;
     }
-    const text = (inline.children || [])
+    const rawText = (inline.children || [])
       .map((child) => (child.type === 'text' || child.type === 'code_inline' ? child.content : ''))
       .join('')
       .trim();
+    const text = rawText.replace(/%+/g, '').trim();
+    if (!text) {
+      return;
+    }
     const baseId = slugifyHeading(text) || `section-${toc.length + 1}`;
     const nextCount = (headingCounts.get(baseId) || 0) + 1;
     headingCounts.set(baseId, nextCount);
