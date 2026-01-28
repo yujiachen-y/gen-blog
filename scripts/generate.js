@@ -4,6 +4,7 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import { createMarkdownRenderer } from './markdown.js';
 import { processImage, processImageSource } from './images.js';
+import { subsetThemeFonts } from './fonts.js';
 
 const args = process.argv.slice(2);
 
@@ -187,6 +188,44 @@ const escapeHtml = (value) =>
     .replace(/'/g, '&#39;');
 
 const stripLeadingSlash = (value) => (value.startsWith('/') ? value.slice(1) : value);
+
+const BASE_FONT_CHARS =
+  `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789` +
+  ` .,;:!?"'` +
+  '`' +
+  `“”‘’` +
+  `()[]{}<>+-=_/\\|@#$%^&*~`;
+const UI_FONT_TEXT = 'About EN 中文 目录 Contents';
+
+const collectFontText = (posts, siteTitle) => {
+  const parts = [BASE_FONT_CHARS, UI_FONT_TEXT, siteTitle || ''];
+  posts.forEach((post) => {
+    if (post.title) {
+      parts.push(post.title);
+    }
+    if (post.excerpt) {
+      parts.push(post.excerpt);
+    }
+    if (post.date) {
+      parts.push(post.date);
+    }
+    if (post.category && Array.isArray(post.category)) {
+      parts.push(post.category.join(' '));
+    }
+    if (post.content) {
+      parts.push(post.content);
+    }
+  });
+  return parts.join('');
+};
+
+const buildPostAssetDir = (post) =>
+  path.posix.join('posts', post.translationKey, post.lang || post.defaultLang || 'unknown');
+
+const buildPostImagePath = (post, index) =>
+  path.posix.join(buildPostAssetDir(post), `image_${index}`);
+
+const buildPostCoverPath = (post) => path.posix.join(buildPostAssetDir(post), 'cover');
 
 const shouldIgnoreDir = (entryName) => entryName.startsWith('.') || entryName === 'node_modules';
 
@@ -933,6 +972,7 @@ const renderMarkdownWithImages = async ({
   imageCache,
   imageOptions,
   imageIndex,
+  buildImagePath,
 }) => {
   const renderer = createMarkdownRenderer({ allowHtml: false });
   const { md } = renderer;
@@ -981,16 +1021,29 @@ const renderMarkdownWithImages = async ({
     .map((token) => token.attrGet('src'))
     .filter(Boolean);
 
+  const imagePathMap = new Map();
+  let imageCounter = 0;
+  imageSources.forEach((src) => {
+    if (!imagePathMap.has(src)) {
+      imageCounter += 1;
+      imagePathMap.set(src, buildImagePath(imageCounter));
+    }
+  });
+
   const resolvedImages = await Promise.all(
     imageSources.map(async (src) => {
+      const relativePath = imagePathMap.get(src);
       if (isExternalAsset(src)) {
-        const cacheKey = `external:${src}`;
+        const cacheKey = `external:${relativePath}:${src}`;
         if (!imageCache.has(cacheKey)) {
           imageCache.set(
             cacheKey,
             (async () => {
               try {
-                return { ...(await processImageSource(src, imageOptions)), external: false };
+                return {
+                  ...(await processImageSource(src, { ...imageOptions, relativePath })),
+                  external: false,
+                };
               } catch (error) {
                 return { picture: null, external: true };
               }
@@ -1012,10 +1065,11 @@ const renderMarkdownWithImages = async ({
       if (!IMAGE_EXTS.has(ext)) {
         throw new Error(`${filePath}: unsupported image format ${ext} in ${src}`);
       }
-      if (!imageCache.has(resolved)) {
-        imageCache.set(resolved, processImage(resolved, imageOptions));
+      const cacheKey = `${resolved}:${relativePath}`;
+      if (!imageCache.has(cacheKey)) {
+        imageCache.set(cacheKey, processImage(resolved, { ...imageOptions, relativePath }));
       }
-      const processed = await imageCache.get(resolved);
+      const processed = await imageCache.get(cacheKey);
       return { src, picture: processed.picture, external: false };
     })
   );
@@ -1064,7 +1118,7 @@ const copyKatexAssets = async (targetDir) => {
   );
 };
 
-const copyThemeAssets = async (targetDir) => {
+const copyThemeAssets = async (targetDir, fontText) => {
   await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(targetDir, 'styles.css'));
   await fs.copyFile(path.join(themeDir, 'app.js'), path.join(targetDir, 'app.js'));
   await fs.copyFile(path.join(themeDir, 'favicon.png'), path.join(targetDir, 'favicon.png'));
@@ -1075,16 +1129,20 @@ const copyThemeAssets = async (targetDir) => {
   );
   const fontsDir = path.join(themeDir, 'fonts');
   try {
-    const entries = await fs.readdir(fontsDir, { withFileTypes: true });
     const targetFontsDir = path.join(targetDir, 'fonts');
-    await ensureDir(targetFontsDir);
-    await Promise.all(
-      entries
-        .filter((entry) => entry.isFile())
-        .map((entry) =>
-          fs.copyFile(path.join(fontsDir, entry.name), path.join(targetFontsDir, entry.name))
-        )
-    );
+    if (fontText) {
+      await subsetThemeFonts({ sourceDir: fontsDir, targetDir: targetFontsDir, text: fontText });
+    } else {
+      const entries = await fs.readdir(fontsDir, { withFileTypes: true });
+      await ensureDir(targetFontsDir);
+      await Promise.all(
+        entries
+          .filter((entry) => entry.isFile())
+          .map((entry) =>
+            fs.copyFile(path.join(fontsDir, entry.name), path.join(targetFontsDir, entry.name))
+          )
+      );
+    }
   } catch (error) {
     if (error && error.code !== 'ENOENT') {
       throw error;
@@ -1122,9 +1180,6 @@ const run = async () => {
     readTemplate('index.html'),
     readTemplate('post.html'),
   ]);
-
-  await copyThemeAssets(buildDir);
-
   const posts = await loadPosts();
   const groups = buildPostGroups(posts);
   const aboutGroup = groups.find((group) => group.translationKey === 'about') || null;
@@ -1133,6 +1188,9 @@ const run = async () => {
   const languages = Array.from(new Set(nonAboutPosts.map((post) => post.lang).filter(Boolean)));
   const defaultLang = languages.includes('zh') ? 'zh' : languages[0] || 'en';
 
+  const fontText = collectFontText(posts, siteTitle);
+  await copyThemeAssets(buildDir, fontText);
+
   const imageCache = new Map();
   const imageIndex = await buildImageIndex(inputDir);
   const imageOptions = {
@@ -1140,16 +1198,27 @@ const run = async () => {
     sourceBase: inputDir,
     publicBase: '/assets',
     maxWidth: 680,
+    minWidth: 240,
+    maxBytes: 600 * 1024,
+    jpegQuality: 70,
+    webpQuality: 70,
   };
 
   const processedPosts = await Promise.all(
     posts.map(async (post) => {
       let coverPicture = null;
       if (post.coverImage) {
+        const coverRelativePath = buildPostCoverPath(post);
         if (isExternalAsset(post.coverImage)) {
-          const cacheKey = `external:${post.coverImage}`;
+          const cacheKey = `external:${coverRelativePath}:${post.coverImage}`;
           if (!imageCache.has(cacheKey)) {
-            imageCache.set(cacheKey, processImageSource(post.coverImage, imageOptions));
+            imageCache.set(
+              cacheKey,
+              processImageSource(post.coverImage, {
+                ...imageOptions,
+                relativePath: coverRelativePath,
+              })
+            );
           }
           const processed = await imageCache.get(cacheKey);
           coverPicture = processed.picture;
@@ -1162,10 +1231,14 @@ const run = async () => {
           if (!IMAGE_EXTS.has(ext)) {
             throw new Error(`${post.sourcePath}: unsupported cover image format ${ext}`);
           }
-          if (!imageCache.has(resolved)) {
-            imageCache.set(resolved, processImage(resolved, imageOptions));
+          const cacheKey = `${resolved}:${coverRelativePath}`;
+          if (!imageCache.has(cacheKey)) {
+            imageCache.set(
+              cacheKey,
+              processImage(resolved, { ...imageOptions, relativePath: coverRelativePath })
+            );
           }
-          const processed = await imageCache.get(resolved);
+          const processed = await imageCache.get(cacheKey);
           coverPicture = processed.picture;
         }
       }
@@ -1176,6 +1249,7 @@ const run = async () => {
         imageCache,
         imageOptions,
         imageIndex,
+        buildImagePath: (index) => buildPostImagePath(post, index),
       });
       const tocHtml = buildTocHtml(toc, post.lang);
       const tocLayoutClass = tocHtml ? 'has-toc' : 'no-toc';

@@ -5,8 +5,12 @@ import sharp from 'sharp';
 
 const DEFAULT_MAX_WIDTH = 680;
 const DEFAULT_MAX_IMAGE_BYTES = 600 * 1024;
-const MIN_IMAGE_WIDTH = 480;
+const DEFAULT_MIN_WIDTH = 240;
 const RESIZE_STEP = 0.85;
+const DEFAULT_JPEG_QUALITY = 70;
+const DEFAULT_WEBP_QUALITY = 70;
+const MIN_JPEG_QUALITY = 55;
+const QUALITY_STEP = 5;
 const DEFAULT_OUTPUT_BASE = path.resolve('dist/assets');
 const DEFAULT_PUBLIC_BASE = '/assets';
 const DEFAULT_REMOTE_DIR = 'remote';
@@ -71,6 +75,11 @@ const resolveOptions = (options = {}) => ({
   sourceBase: options.sourceBase ? path.resolve(options.sourceBase) : null,
   publicBase: options.publicBase ?? DEFAULT_PUBLIC_BASE,
   maxWidth: options.maxWidth ?? DEFAULT_MAX_WIDTH,
+  minWidth: options.minWidth ?? DEFAULT_MIN_WIDTH,
+  maxBytes: options.maxBytes ?? DEFAULT_MAX_IMAGE_BYTES,
+  resizeStep: options.resizeStep ?? RESIZE_STEP,
+  jpegQuality: options.jpegQuality ?? DEFAULT_JPEG_QUALITY,
+  webpQuality: options.webpQuality ?? DEFAULT_WEBP_QUALITY,
   remoteDir: options.remoteDir ?? DEFAULT_REMOTE_DIR,
 });
 
@@ -124,6 +133,11 @@ const processImageInput = async ({ input, imageKind, relativePath }, options) =>
 
   const metadata = await buildSharp(input).metadata();
   const maxWidth = resolvedOptions.maxWidth;
+  const maxBytes = resolvedOptions.maxBytes;
+  const minWidth = resolvedOptions.minWidth;
+  const resizeStep = resolvedOptions.resizeStep;
+  let jpegQuality = resolvedOptions.jpegQuality;
+  let webpQuality = resolvedOptions.webpQuality;
   const hasDimensions = Boolean(metadata.width && metadata.height);
   const initialWidth = hasDimensions ? Math.min(maxWidth, metadata.width) : maxWidth;
 
@@ -140,12 +154,12 @@ const processImageInput = async ({ input, imageKind, relativePath }, options) =>
 
     const webpPipeline =
       imageKind === 'jpeg'
-        ? resized.clone().webp({ quality: 70 })
+        ? resized.clone().webp({ quality: webpQuality })
         : resized.clone().webp({ lossless: true });
 
     const fallbackPipeline =
       imageKind === 'jpeg'
-        ? resized.clone().jpeg({ quality: 70, mozjpeg: true })
+        ? resized.clone().jpeg({ quality: jpegQuality, mozjpeg: true })
         : resized.clone().png({ compressionLevel: 9, adaptiveFiltering: true });
 
     [webpBuffer, fallbackBuffer] = await Promise.all([
@@ -154,20 +168,28 @@ const processImageInput = async ({ input, imageKind, relativePath }, options) =>
     ]);
 
     const largestSize = Math.max(webpBuffer.length, fallbackBuffer.length);
+    if (!hasDimensions || largestSize <= maxBytes) {
+      shouldResize = false;
+      break;
+    }
+    if (currentWidth > minWidth) {
+      const nextWidth = Math.max(Math.floor(currentWidth * resizeStep), minWidth);
+      if (nextWidth === currentWidth) {
+        currentWidth = minWidth;
+      } else {
+        currentWidth = nextWidth;
+      }
+      continue;
+    }
     if (
-      !hasDimensions ||
-      largestSize <= DEFAULT_MAX_IMAGE_BYTES ||
-      currentWidth <= MIN_IMAGE_WIDTH
+      imageKind === 'jpeg' &&
+      (jpegQuality > MIN_JPEG_QUALITY || webpQuality > MIN_JPEG_QUALITY)
     ) {
-      shouldResize = false;
-      break;
+      jpegQuality = Math.max(jpegQuality - QUALITY_STEP, MIN_JPEG_QUALITY);
+      webpQuality = Math.max(webpQuality - QUALITY_STEP, MIN_JPEG_QUALITY);
+      continue;
     }
-    const nextWidth = Math.max(Math.floor(currentWidth * RESIZE_STEP), MIN_IMAGE_WIDTH);
-    if (nextWidth === currentWidth) {
-      shouldResize = false;
-      break;
-    }
-    currentWidth = nextWidth;
+    shouldResize = false;
   }
 
   const targetSize = calculateTargetSize(metadata, currentWidth);
@@ -202,7 +224,7 @@ const processImageInput = async ({ input, imageKind, relativePath }, options) =>
   };
 };
 
-export const processImage = async (inputPath, options) => {
+export const processImage = async (inputPath, options = {}) => {
   const resolvedOptions = resolveOptions(options);
   const ext = normalizeExt(inputPath);
   const imageKind = getImageKind(ext);
@@ -211,7 +233,8 @@ export const processImage = async (inputPath, options) => {
     throw new Error(`Unsupported image format: ${ext}`);
   }
 
-  const relativePath = resolveRelativePath(inputPath, resolvedOptions.sourceBase);
+  const relativePath =
+    options.relativePath || resolveRelativePath(inputPath, resolvedOptions.sourceBase);
   return processImageInput({ input: inputPath, imageKind, relativePath }, resolvedOptions);
 };
 
@@ -260,7 +283,7 @@ const fetchRemoteImage = async (src) => {
   return { buffer, contentType };
 };
 
-export const processImageSource = async (src, options) => {
+export const processImageSource = async (src, options = {}) => {
   const resolvedOptions = resolveOptions(options);
 
   if (src.startsWith('data:')) {
@@ -272,7 +295,8 @@ export const processImageSource = async (src, options) => {
     if (!imageKind) {
       throw new Error(`Unsupported data URI mime type: ${parsed.mime}`);
     }
-    const relativePath = resolveRemoteRelativePath(parsed.buffer, imageKind, resolvedOptions);
+    const relativePath =
+      options.relativePath || resolveRemoteRelativePath(parsed.buffer, imageKind, resolvedOptions);
     return processImageInput({ input: parsed.buffer, imageKind, relativePath }, resolvedOptions);
   }
 
@@ -281,7 +305,8 @@ export const processImageSource = async (src, options) => {
   if (!imageKind) {
     throw new Error(`Unsupported remote image type: ${src}`);
   }
-  const relativePath = resolveRemoteRelativePath(buffer, imageKind, resolvedOptions);
+  const relativePath =
+    options.relativePath || resolveRemoteRelativePath(buffer, imageKind, resolvedOptions);
   return processImageInput({ input: buffer, imageKind, relativePath }, resolvedOptions);
 };
 
