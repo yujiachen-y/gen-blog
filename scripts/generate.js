@@ -27,7 +27,6 @@ const outputArg = args[1] && !args[1].startsWith('--') ? args[1] : 'dist';
 const inputDir = path.resolve(inputArg);
 const outputDir = path.resolve(outputArg);
 const themeDir = path.resolve('theme');
-const PAGE_SIZE = 12;
 const SUPPORTED_LANGS = new Set(['zh', 'en']);
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png']);
 
@@ -766,30 +765,6 @@ const buildMetaForList = (siteTitle, description, canonicalUrl, prevUrl, nextUrl
     hreflangLinks,
   ]);
 
-const buildPaginationHtml = (page, totalPages, pageUrl) => {
-  if (totalPages <= 1) {
-    return '';
-  }
-  const prevUrl = page > 1 ? pageUrl(page - 1) : null;
-  const nextUrl = page < totalPages ? pageUrl(page + 1) : null;
-
-  const prevLink = prevUrl
-    ? `<a class="pagination-link" href="${prevUrl}">Prev</a>`
-    : `<span class="pagination-link is-disabled">Prev</span>`;
-  const nextLink = nextUrl
-    ? `<a class="pagination-link" href="${nextUrl}">Next</a>`
-    : `<span class="pagination-link is-disabled">Next</span>`;
-
-  return `\n<div class="pagination-inner">\n  ${prevLink}\n  <span class="pagination-status">Page ${page} of ${totalPages}</span>\n  ${nextLink}\n</div>\n`;
-};
-
-const chunkBy = (items, size) =>
-  items.reduce((acc, item, index) => {
-    const pageIndex = Math.floor(index / size);
-    const next = acc[pageIndex] || [];
-    return [...acc.slice(0, pageIndex), [...next, item], ...acc.slice(pageIndex + 1)];
-  }, []);
-
 const loadPosts = async () => {
   const files = await collectMarkdownFiles(inputDir);
   const errors = [];
@@ -917,17 +892,36 @@ const buildPostUrl = (translationKey, lang, defaultLang) => {
   return `/${translationKey}${langSegment}/`;
 };
 
-const buildListUrl = (lang, defaultLang, page) => {
+const buildListUrl = (lang, defaultLang) => {
   const prefix = lang === defaultLang ? '' : `/${lang}`;
-  if (page === 1) {
-    return `${prefix}/` || '/';
-  }
-  return `${prefix}/page/${page}/`;
+  return `${prefix}/` || '/';
+};
+
+const buildListSectionsHtml = (items) => {
+  const groups = [];
+  items.forEach((item) => {
+    const year = item.date ? item.date.slice(0, 4) : 'Unknown';
+    const current = groups[groups.length - 1];
+    if (!current || current.year !== year) {
+      groups.push({ year, items: [item] });
+    } else {
+      current.items.push(item);
+    }
+  });
+
+  return groups
+    .map((group) => {
+      const cards = group.items.map((item) => buildCardHtml(item)).join('');
+      return `\n<section class="year-section">\n  <h2 class="year-heading">${escapeHtml(
+        group.year
+      )}</h2>\n  <div class="year-posts">${cards}</div>\n</section>\n`;
+    })
+    .join('');
 };
 
 const buildAboutUrl = (lang, defaultLang, aboutGroup) => {
   if (!aboutGroup) {
-    return buildListUrl(lang, defaultLang, 1);
+    return buildListUrl(lang, defaultLang);
   }
   const targetLang = aboutGroup.languages.includes(lang) ? lang : aboutGroup.defaultLang;
   return buildPostUrl('about', targetLang, aboutGroup.defaultLang);
@@ -1226,13 +1220,6 @@ const run = async () => {
     return { lang, items };
   });
 
-  const pageCounts = new Map(
-    listDataByLang.map((group) => [
-      group.lang,
-      Math.max(1, Math.ceil(group.items.length / PAGE_SIZE)),
-    ])
-  );
-
   const filterIndex = listDataByLang.flatMap((group) =>
     group.items.map((post) => ({
       translationKey: post.translationKey,
@@ -1276,7 +1263,7 @@ const run = async () => {
         PAGE_TITLE: `${post.title} | ${siteTitle}`,
         META_TAGS: metaTags,
         LANG: post.lang,
-        HOME_URL: buildListUrl(post.lang, defaultLang, 1),
+        HOME_URL: buildListUrl(post.lang, defaultLang),
         ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
         SITE_TITLE: siteTitle,
         ARTICLE_CONTENT: articleHtml,
@@ -1291,30 +1278,15 @@ const run = async () => {
     })
   );
 
-  const listPages = listDataByLang.flatMap((group) => {
-    const pages = chunkBy(group.items, PAGE_SIZE);
-    return pages.map((pageItems, index) => ({
-      lang: group.lang,
-      page: index + 1,
-      totalPages: pages.length,
-      items: pageItems,
-    }));
-  });
-
   await Promise.all(
-    listPages.map(async (page) => {
-      const pageUrl = buildListUrl(page.lang, defaultLang, page.page);
-      const paginationHtml = buildPaginationHtml(page.page, page.totalPages, (target) =>
-        buildListUrl(page.lang, defaultLang, target)
-      );
-      const listHtml = page.items.map((item) => buildCardHtml(item)).join('');
+    listDataByLang.map(async (group) => {
+      const pageUrl = buildListUrl(group.lang, defaultLang);
+      const listHtml = buildListSectionsHtml(group.items);
       const canonicalUrl = buildUrl(siteUrl, pageUrl);
-      const otherLang = languages.find((lang) => lang !== page.lang) || null;
-      const otherPageCount = otherLang ? pageCounts.get(otherLang) || 1 : 1;
-      const langSwitchPage = Math.min(page.page, otherPageCount);
+      const otherLang = languages.find((lang) => lang !== group.lang) || null;
       const hreflangLinks = buildHreflangLinks(
         languages.reduce((acc, lang) => {
-          acc[lang] = buildUrl(siteUrl, buildListUrl(lang, defaultLang, page.page));
+          acc[lang] = buildUrl(siteUrl, buildListUrl(lang, defaultLang));
           return acc;
         }, {})
       );
@@ -1322,24 +1294,18 @@ const run = async () => {
         siteTitle,
         'Latest posts and essays.',
         canonicalUrl,
-        page.page > 1
-          ? buildUrl(siteUrl, buildListUrl(page.lang, defaultLang, page.page - 1))
-          : null,
-        page.page < page.totalPages
-          ? buildUrl(siteUrl, buildListUrl(page.lang, defaultLang, page.page + 1))
-          : null,
+        null,
+        null,
         hreflangLinks
       );
 
       const pageData = {
         pageType: 'list',
-        lang: page.lang,
-        langSwitchUrl: otherLang ? buildListUrl(otherLang, defaultLang, langSwitchPage) : null,
+        lang: group.lang,
+        langSwitchUrl: otherLang ? buildListUrl(otherLang, defaultLang) : null,
         langSwitcherMode: otherLang ? 'toggle' : 'hidden',
         filterIndexUrl: '/posts/filter-index.json',
-        page: page.page,
-        totalPages: page.totalPages,
-        posts: page.items.map((item) => ({
+        posts: group.items.map((item) => ({
           translationKey: item.translationKey,
           title: item.title,
           date: item.date,
@@ -1356,14 +1322,13 @@ const run = async () => {
       };
 
       const html = renderTemplate(listTemplate, {
-        PAGE_TITLE: page.page === 1 ? `${siteTitle}` : `${siteTitle} · Page ${page.page}`,
+        PAGE_TITLE: `${siteTitle}`,
         META_TAGS: metaTags,
-        LANG: page.lang,
-        HOME_URL: buildListUrl(page.lang, defaultLang, 1),
-        ABOUT_URL: buildAboutUrl(page.lang, defaultLang, aboutGroup),
+        LANG: group.lang,
+        HOME_URL: buildListUrl(group.lang, defaultLang),
+        ABOUT_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
         SITE_TITLE: siteTitle,
         LIST_CONTENT: listHtml,
-        PAGINATION: paginationHtml,
         LANG_SWITCH_MODE: otherLang ? 'toggle' : 'hidden',
         PAGE_DATA: JSON.stringify(pageData, null, 2),
       });
@@ -1376,9 +1341,7 @@ const run = async () => {
   if (siteUrl) {
     const urls = [
       ...postPages.map((post) => buildUrl(siteUrl, post.url)),
-      ...listPages.map((page) =>
-        buildUrl(siteUrl, buildListUrl(page.lang, defaultLang, page.page))
-      ),
+      ...listDataByLang.map((group) => buildUrl(siteUrl, buildListUrl(group.lang, defaultLang))),
     ];
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
       .map((url) => `  <url><loc>${url}</loc></url>`)

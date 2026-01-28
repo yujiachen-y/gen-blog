@@ -3,7 +3,6 @@ const pageData = pageDataEl ? JSON.parse(pageDataEl.textContent || '{}') : {};
 
 const grid = document.getElementById('grid-container');
 const filterPills = document.getElementById('filter-pills');
-const pagination = document.querySelector('[data-pagination]');
 const themeSwitchers = Array.from(document.querySelectorAll('[data-theme-switcher]'));
 const langSwitchers = Array.from(document.querySelectorAll('[data-lang-switcher]'));
 
@@ -21,7 +20,7 @@ const state = {
   language: pageData.lang || 'en',
 };
 
-const getScrollKey = () => `${scrollStorageKey}:${state.language}:page:${pageData.page ?? 1}`;
+const getScrollKey = () => `${scrollStorageKey}:${state.language}`;
 
 const saveScrollPosition = () => {
   if (pageData.pageType !== 'list') {
@@ -254,13 +253,41 @@ const createCard = (post) => {
   return card;
 };
 
+const groupPostsByYear = (posts) => {
+  const groups = [];
+  posts.forEach((post) => {
+    const year = post.date ? post.date.slice(0, 4) : 'Unknown';
+    const current = groups[groups.length - 1];
+    if (!current || current.year !== year) {
+      groups.push({ year, posts: [post] });
+    } else {
+      current.posts.push(post);
+    }
+  });
+  return groups;
+};
+
 const renderPosts = (posts) => {
   if (!grid) {
     return;
   }
   grid.innerHTML = '';
-  posts.forEach((post) => {
-    grid.appendChild(createCard(post));
+  groupPostsByYear(posts).forEach((group) => {
+    const section = document.createElement('section');
+    section.className = 'year-section';
+
+    const heading = document.createElement('h2');
+    heading.className = 'year-heading';
+    heading.textContent = group.year;
+
+    const list = document.createElement('div');
+    list.className = 'year-posts';
+    group.posts.forEach((post) => {
+      list.appendChild(createCard(post));
+    });
+
+    section.append(heading, list);
+    grid.appendChild(section);
   });
 };
 
@@ -268,24 +295,15 @@ const swapPosts = (nextPosts) => {
   renderPosts(nextPosts);
 };
 
-const setPaginationVisible = (isVisible) => {
-  if (!pagination) {
-    return;
-  }
-  pagination.classList.toggle('is-hidden', !isVisible);
-};
-
 const renderFilteredPosts = () => {
   if (state.filter === 'all') {
     swapPosts(state.initialPosts);
-    setPaginationVisible(true);
     return;
   }
   const filtered = state.filterIndex.filter((post) =>
     (post.categories || []).some((category) => slugifySegment(category) === state.filter)
   );
   swapPosts(filtered);
-  setPaginationVisible(false);
 };
 
 const loadFilterIndex = async () => {

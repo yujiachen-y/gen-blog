@@ -60,8 +60,7 @@ Processing rules:
 
 ## Output Structure
 - Each post generates its own HTML at `/<translation_key>/` (SEO friendly).
-- Index and paginated list pages:
-  - Page size: **12** posts
+- List page shows **all posts** (no pagination), grouped into **year sections** (e.g., 2025, 2024, 2023).
 - JSON index for filters is generated.
 
 If output contains `.git`, `CNAME`, or `.nojekyll`:
