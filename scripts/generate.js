@@ -529,6 +529,57 @@ const stripObsidianComments = (value) => {
     .replace(/^[ \t]*#{1,6}[ \t]*$/gm, '');
 };
 
+const stripObsidianDeletions = (value) => {
+  const lines = value.split('\n');
+  const output = [];
+  let inDeletion = false;
+  let inFence = false;
+  let fenceToken = '';
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    const fenceMatch = trimmed.match(/^(?:```|~~~)/);
+    if (fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceToken = fenceMatch[0];
+      } else if (trimmed.startsWith(fenceToken)) {
+        inFence = false;
+      }
+      output.push(line);
+      return;
+    }
+
+    if (inFence) {
+      output.push(line);
+      return;
+    }
+
+    let cursor = 0;
+    let buffer = '';
+    while (cursor < line.length) {
+      const idx = line.indexOf('~~', cursor);
+      if (idx === -1) {
+        if (!inDeletion) {
+          buffer += line.slice(cursor);
+        }
+        break;
+      }
+
+      if (!inDeletion) {
+        buffer += line.slice(cursor, idx);
+        inDeletion = true;
+      } else {
+        inDeletion = false;
+      }
+      cursor = idx + 2;
+    }
+    output.push(buffer);
+  });
+
+  return output.join('\n');
+};
+
 const isObsidianSizeHint = (value) => /^\d+(x\d+)?$/i.test(value);
 
 const resolveEmbedPath = async (target, filePath, imageIndex) => {
@@ -599,7 +650,8 @@ const replaceObsidianImageEmbeds = async (source, filePath, imageIndex) => {
 const preprocessObsidianContent = async (source, filePath, imageIndex) => {
   const withAsides = convertHtmlAsidesToCallouts(source);
   const stripped = stripObsidianComments(withAsides);
-  return replaceObsidianImageEmbeds(stripped, filePath, imageIndex);
+  const cleaned = stripObsidianDeletions(stripped);
+  return replaceObsidianImageEmbeds(cleaned, filePath, imageIndex);
 };
 
 const buildPictureHtml = (picture, options = {}) => {
@@ -995,6 +1047,29 @@ const renderMarkdownWithImages = async ({
   return { html: md.renderer.render(tokens, md.options, env), toc };
 };
 
+const copyKatexAssets = async (targetDir) => {
+  const katexDir = path.resolve('node_modules/katex/dist');
+  if (!(await pathExists(katexDir))) {
+    return;
+  }
+  const targetKatexDir = path.join(targetDir, 'katex');
+  const targetFontsDir = path.join(targetKatexDir, 'fonts');
+  await ensureDir(targetFontsDir);
+  await fs.copyFile(
+    path.join(katexDir, 'katex.min.css'),
+    path.join(targetKatexDir, 'katex.min.css')
+  );
+
+  const entries = await fs.readdir(path.join(katexDir, 'fonts'), { withFileTypes: true });
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isFile())
+      .map((entry) =>
+        fs.copyFile(path.join(katexDir, 'fonts', entry.name), path.join(targetFontsDir, entry.name))
+      )
+  );
+};
+
 const copyThemeAssets = async (targetDir) => {
   await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(targetDir, 'styles.css'));
   await fs.copyFile(path.join(themeDir, 'app.js'), path.join(targetDir, 'app.js'));
@@ -1021,6 +1096,7 @@ const copyThemeAssets = async (targetDir) => {
       throw error;
     }
   }
+  await copyKatexAssets(targetDir);
 };
 
 const writePage = async (targetDir, html) => {

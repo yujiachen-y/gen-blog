@@ -1,5 +1,7 @@
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
+import katex from 'katex';
+import texmath from 'markdown-it-texmath';
 import footnote from 'markdown-it-footnote';
 import taskLists from 'markdown-it-task-lists';
 
@@ -46,6 +48,14 @@ export const createMarkdownRenderer = (options = {}) => {
     labelAfter: true,
   });
   md.use(footnote);
+  md.use(texmath, {
+    engine: katex,
+    delimiters: 'dollars',
+    katexOptions: {
+      throwOnError: false,
+      strict: 'ignore',
+    },
+  });
 
   return {
     md,

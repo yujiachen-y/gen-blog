@@ -1007,6 +1007,12 @@ body.view-article .navbar .action-controls {
   color: var(--code-symbol);
 }
 
+.article-body .katex-display {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 .article-body picture {
   display: block;
   margin: 1.5rem 0;
