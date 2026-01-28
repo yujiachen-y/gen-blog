@@ -943,6 +943,26 @@ const buildListUrl = (lang, defaultLang) => {
   return `${LIST_BASE}${langSegment}/`;
 };
 
+const buildAboutAliasUrl = (lang, defaultLang) => {
+  const langSegment = lang === defaultLang ? '' : `/${lang}`;
+  return `/about${langSegment}/`;
+};
+
+const buildRedirectHtml = (targetUrl, canonicalUrl, siteTitle) => `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=${escapeHtml(targetUrl)}" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    ${canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : ''}
+    <title>${escapeHtml(siteTitle)} · Redirect</title>
+  </head>
+  <body>
+    <p>Redirecting to <a href="${escapeHtml(targetUrl)}">${escapeHtml(targetUrl)}</a>…</p>
+  </body>
+</html>
+`;
+
 const buildListSectionsHtml = (items) => {
   const groups = [];
   items.forEach((item) => {
@@ -1429,6 +1449,19 @@ const run = async () => {
       await writePage(targetDir, html);
     })
   );
+
+  if (aboutGroup) {
+    await Promise.all(
+      aboutGroup.languages.map(async (lang) => {
+        const aliasUrl = buildAboutAliasUrl(lang, aboutGroup.defaultLang);
+        const targetUrl = buildHomeUrl(lang, aboutGroup.defaultLang);
+        const canonicalUrl = siteUrl ? buildUrl(siteUrl, targetUrl) : null;
+        const html = buildRedirectHtml(targetUrl, canonicalUrl, siteTitle);
+        const targetDir = path.join(buildDir, stripLeadingSlash(aliasUrl));
+        await writePage(targetDir, html);
+      })
+    );
+  }
 
   if (siteUrl) {
     const urls = [
