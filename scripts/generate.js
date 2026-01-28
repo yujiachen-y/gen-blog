@@ -926,14 +926,21 @@ const buildUrl = (baseUrl, pathName) => {
   return `${trimmed}${pathName}`;
 };
 
+const LIST_BASE = '/blog';
+
+const buildHomeUrl = (lang, defaultLang) => {
+  const prefix = lang === defaultLang ? '' : `/${lang}`;
+  return `${prefix}/` || '/';
+};
+
 const buildPostUrl = (translationKey, lang, defaultLang) => {
   const langSegment = lang === defaultLang ? '' : `/${lang}`;
   return `/${translationKey}${langSegment}/`;
 };
 
 const buildListUrl = (lang, defaultLang) => {
-  const prefix = lang === defaultLang ? '' : `/${lang}`;
-  return `${prefix}/` || '/';
+  const langSegment = lang === defaultLang ? '' : `/${lang}`;
+  return `${LIST_BASE}${langSegment}/`;
 };
 
 const buildListSectionsHtml = (items) => {
@@ -963,7 +970,7 @@ const buildAboutUrl = (lang, defaultLang, aboutGroup) => {
     return buildListUrl(lang, defaultLang);
   }
   const targetLang = aboutGroup.languages.includes(lang) ? lang : aboutGroup.defaultLang;
-  return buildPostUrl('about', targetLang, aboutGroup.defaultLang);
+  return buildHomeUrl(targetLang, aboutGroup.defaultLang);
 };
 
 const renderMarkdownWithImages = async ({
@@ -1267,10 +1274,15 @@ const run = async () => {
   const groupMap = new Map(groups.map((group) => [group.translationKey, group]));
   const postPages = processedPosts.map((post) => {
     const group = groupMap.get(post.translationKey);
-    const pageUrl = buildPostUrl(post.translationKey, post.lang, group.defaultLang);
+    const isAbout = post.translationKey === 'about';
+    const resolvePostUrl = (lang) =>
+      isAbout
+        ? buildHomeUrl(lang, group.defaultLang)
+        : buildPostUrl(post.translationKey, lang, group.defaultLang);
+    const pageUrl = resolvePostUrl(post.lang);
     const langSwitchUrl = group.languages
       .filter((lang) => lang !== post.lang)
-      .map((lang) => buildPostUrl(post.translationKey, lang, group.defaultLang))[0];
+      .map((lang) => resolvePostUrl(lang))[0];
 
     return {
       ...post,
@@ -1317,9 +1329,13 @@ const run = async () => {
   await Promise.all(
     postPages.map(async (post) => {
       const canonicalUrl = buildUrl(siteUrl, post.url);
+      const isAbout = post.translationKey === 'about';
       const hreflangLinks = buildHreflangLinks(
         post.languages.reduce((acc, lang) => {
-          acc[lang] = buildUrl(siteUrl, buildPostUrl(post.translationKey, lang, post.defaultLang));
+          const url = isAbout
+            ? buildHomeUrl(lang, post.defaultLang)
+            : buildPostUrl(post.translationKey, lang, post.defaultLang);
+          acc[lang] = buildUrl(siteUrl, url);
           return acc;
         }, {})
       );
@@ -1337,8 +1353,9 @@ const run = async () => {
         PAGE_TITLE: `${post.title} | ${siteTitle}`,
         META_TAGS: metaTags,
         LANG: post.lang,
-        HOME_URL: buildListUrl(post.lang, defaultLang),
+        HOME_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
         ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
+        BLOG_URL: buildListUrl(post.lang, defaultLang),
         SITE_TITLE: siteTitle,
         ARTICLE_CONTENT: articleHtml,
         TOC: post.tocHtml,
@@ -1399,8 +1416,9 @@ const run = async () => {
         PAGE_TITLE: `${siteTitle}`,
         META_TAGS: metaTags,
         LANG: group.lang,
-        HOME_URL: buildListUrl(group.lang, defaultLang),
+        HOME_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
         ABOUT_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
+        BLOG_URL: buildListUrl(group.lang, defaultLang),
         SITE_TITLE: siteTitle,
         LIST_CONTENT: listHtml,
         LANG_SWITCH_MODE: otherLang ? 'toggle' : 'hidden',
