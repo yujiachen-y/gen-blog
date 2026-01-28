@@ -406,6 +406,36 @@ const markTallImages = () => {
   });
 };
 
+const updateActiveNav = () => {
+  const navLinks = document.querySelectorAll('.nav-link-button');
+  navLinks.forEach((link) => {
+    let isActive = false;
+    // Check based on Page Type logic
+    if (pageData.pageType === 'about' && link.textContent.trim() === 'About') {
+      isActive = true;
+    } else if (
+      (pageData.pageType === 'list' || pageData.pageType === 'post') &&
+      link.textContent.trim() === 'Blog'
+    ) {
+      isActive = true;
+    }
+
+    // Fallback: Check strictly by URL if pageType logic didn't match (e.g. unknown pages)
+    if (!isActive) {
+      try {
+        const linkPath = new URL(link.href, window.location.origin).pathname;
+        if (window.location.pathname === linkPath) {
+          isActive = true;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    link.classList.toggle('active', isActive);
+  });
+};
+
 langSwitchers.forEach((switcher) => {
   const toggle = switcher.querySelector('[data-lang-toggle]');
   if (!toggle) {
@@ -483,6 +513,7 @@ const init = async () => {
   restoreScrollPosition();
   initToc();
   markTallImages();
+  updateActiveNav();
   window.addEventListener('beforeunload', saveScrollPosition);
 };
 
