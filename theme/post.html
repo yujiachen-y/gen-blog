@@ -18,10 +18,15 @@
   <body data-page="post">
     <div id="root">
       <nav class="navbar">
-        <a href="{{HOME_URL}}" class="brand">{{SITE_TITLE}}</a>
+        <div class="nav-left">
+          <a href="{{HOME_URL}}" class="brand">{{SITE_TITLE}}</a>
+          <div class="nav-links">
+            <a class="btn-text" href="{{ABOUT_URL}}">About</a>
+            <a class="btn-text" href="{{HOME_URL}}">Blog</a>
+          </div>
+        </div>
         <div class="controls">
           <div class="action-controls">
-            <a class="btn-text" href="{{ABOUT_URL}}">About</a>
             <div class="lang-switcher" data-lang-switcher data-lang-switcher-mode="{{LANG_SWITCH_MODE}}">
               <button class="lang-toggle" type="button" data-lang-toggle>EN</button>
             </div>
