@@ -6,6 +6,7 @@ A personal Obsidian-to-static blog generator with bilingual support, dark mode, 
 - Bilingual pages (zh/en) with language toggle
 - Static HTML posts + list pages
 - SEO metadata and sitemap/robots generation
+- RSS feeds (`/rss.xml`, `/rss-<lang>.xml`) when `siteUrl` is configured
 - Obsidian-friendly markdown transforms (callouts, embeds, comments)
 - Image pipeline (local + data URI; optional remote fetch)
 - Font subsetting for configured theme fonts

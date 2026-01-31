@@ -65,6 +65,7 @@ Processing rules:
 - Each post generates its own HTML at `/<translation_key>/` (SEO friendly).
 - List page shows **all posts** (no pagination), grouped into **year sections** (e.g., 2025, 2024, 2023).
 - JSON index for filters is generated.
+- RSS feeds at `/rss.xml` and `/rss-<lang>.xml` are generated when `siteUrl` is set.
 
 If output contains `.git`, `CNAME`, or `.nojekyll`:
 - Build into a temp directory and **sync** into output, preserving repo metadata.

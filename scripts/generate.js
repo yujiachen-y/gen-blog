@@ -910,6 +910,180 @@ const buildMetaForList = (siteTitle, description, canonicalUrl, prevUrl, nextUrl
     hreflangLinks,
   ]);
 
+const escapeXml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+
+const wrapCdata = (value) =>
+  `<![CDATA[${String(value || '').replaceAll(']]>', ']]]]><![CDATA[>')}]]>`;
+
+const formatRssDate = (value) => {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toUTCString();
+};
+
+const makeAbsoluteUrl = (baseUrl, url) => {
+  if (!baseUrl || !url) {
+    return url;
+  }
+  if (
+    url.startsWith('#') ||
+    url.startsWith('data:') ||
+    url.startsWith('mailto:') ||
+    url.startsWith('tel:') ||
+    /^https?:\/\//i.test(url)
+  ) {
+    return url;
+  }
+  if (url.startsWith('/')) {
+    return buildUrl(baseUrl, url);
+  }
+  return url;
+};
+
+const absolutizeSrcset = (value, baseUrl) =>
+  value
+    .split(',')
+    .map((candidate) => {
+      const trimmed = candidate.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const [url, ...rest] = trimmed.split(/\s+/);
+      const absolute = makeAbsoluteUrl(baseUrl, url);
+      return [absolute, ...rest].join(' ');
+    })
+    .filter(Boolean)
+    .join(', ');
+
+const replaceAttrValue = (html, attr, baseUrl) => {
+  const pattern = new RegExp(`${attr}=(['"])([^'"]+)\\1`, 'gi');
+  return html.replace(pattern, (match, quote, value) => {
+    const absolute = makeAbsoluteUrl(baseUrl, value);
+    return `${attr}=${quote}${absolute}${quote}`;
+  });
+};
+
+const absolutizeHtml = (value, baseUrl) => {
+  if (!baseUrl || !value) {
+    return value || '';
+  }
+  const withAttrs = ['src', 'href', 'poster'].reduce(
+    (html, attr) => replaceAttrValue(html, attr, baseUrl),
+    String(value)
+  );
+  return withAttrs.replace(/srcset=(['"])([\s\S]*?)\1/gi, (match, quote, attrValue) => {
+    const normalized = absolutizeSrcset(attrValue, baseUrl);
+    return `srcset=${quote}${normalized}${quote}`;
+  });
+};
+
+const formatRssLanguage = (lang) => {
+  if (lang === 'zh') {
+    return 'zh-CN';
+  }
+  return 'en';
+};
+
+const buildRssLinks = (lang, defaultLang, siteUrl) => {
+  if (!siteUrl) {
+    return '';
+  }
+  const defaultHref = buildUrl(siteUrl, '/rss.xml');
+  const langHref = buildUrl(siteUrl, `/rss-${lang}.xml`);
+  const links = [
+    `<link rel="alternate" type="application/rss+xml" title="RSS" href="${escapeHtml(
+      defaultHref
+    )}" />`,
+  ];
+  if (lang && lang !== defaultLang) {
+    links.push(
+      `<link rel="alternate" type="application/rss+xml" title="RSS (${lang.toUpperCase()})" href="${escapeHtml(
+        langHref
+      )}" />`
+    );
+  } else if (lang && lang === defaultLang) {
+    links.push(
+      `<link rel="alternate" type="application/rss+xml" title="RSS (${lang.toUpperCase()})" href="${escapeHtml(
+        langHref
+      )}" />`
+    );
+  }
+  return links.join('\n');
+};
+
+const buildRssFeed = ({ siteTitle, siteUrl, lang, defaultLang, items, feedUrl }) => {
+  const channelTitle =
+    lang === defaultLang ? siteTitle : `${siteTitle} (${String(lang || '').toUpperCase()})`;
+  const channelLink = buildUrl(siteUrl, buildListUrl(lang, defaultLang));
+  const language = formatRssLanguage(lang);
+  const latestDate = items.reduce((latest, item) => {
+    const pubDate = formatRssDate(item.date);
+    if (!pubDate) {
+      return latest;
+    }
+    const current = new Date(pubDate);
+    if (Number.isNaN(current.getTime())) {
+      return latest;
+    }
+    if (!latest || current > latest) {
+      return current;
+    }
+    return latest;
+  }, null);
+  const lastBuildDate = latestDate ? latestDate.toUTCString() : new Date().toUTCString();
+
+  const rssItems = items
+    .map((post) => {
+      const itemUrl = buildUrl(siteUrl, post.url);
+      const pubDate = formatRssDate(post.date);
+      const categories = (post.categories || [])
+        .map((category) => `    <category>${escapeXml(category)}</category>`)
+        .join('\n');
+      const contentHtml = absolutizeHtml(post.contentHtml || '', siteUrl);
+      const contentEncoded = wrapCdata(contentHtml);
+      return [
+        '  <item>',
+        `    <title>${escapeXml(post.title)}</title>`,
+        `    <link>${escapeXml(itemUrl)}</link>`,
+        `    <guid isPermaLink="true">${escapeXml(itemUrl)}</guid>`,
+        pubDate ? `    <pubDate>${escapeXml(pubDate)}</pubDate>` : null,
+        categories || null,
+        `    <content:encoded>${contentEncoded}</content:encoded>`,
+        '  </item>',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    })
+    .join('\n');
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">',
+    '  <channel>',
+    `    <title>${escapeXml(channelTitle)}</title>`,
+    `    <link>${escapeXml(channelLink)}</link>`,
+    `    <description>${escapeXml(siteTitle)}</description>`,
+    `    <language>${escapeXml(language)}</language>`,
+    `    <lastBuildDate>${escapeXml(lastBuildDate)}</lastBuildDate>`,
+    `    <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml" />`,
+    rssItems,
+    '  </channel>',
+    '</rss>',
+    '',
+  ].join('\n');
+};
+
 const loadPosts = async () => {
   const files = await collectMarkdownFiles(inputDir);
   const errors = [];
@@ -1459,6 +1633,30 @@ const run = async () => {
     return { lang, items };
   });
 
+  const rssFeeds = siteUrl
+    ? listDataByLang.map((group) => {
+        const feedPath = `/rss-${group.lang}.xml`;
+        const feedUrl = buildUrl(siteUrl, feedPath);
+        return {
+          lang: group.lang,
+          path: feedPath,
+          xml: buildRssFeed({
+            siteTitle,
+            siteUrl,
+            lang: group.lang,
+            defaultLang,
+            items: group.items,
+            feedUrl,
+          }),
+        };
+      })
+    : [];
+  const defaultRss = rssFeeds.find((feed) => feed.lang === defaultLang) || null;
+  const rssOutputs = defaultRss
+    ? [...rssFeeds, { lang: defaultLang, path: '/rss.xml', xml: defaultRss.xml }]
+    : rssFeeds;
+  const rssEnabled = siteUrl && rssOutputs.length > 0;
+
   const filterIndex = listDataByLang.flatMap((group) =>
     group.items.map((post) => ({
       translationKey: post.translationKey,
@@ -1496,6 +1694,7 @@ const run = async () => {
       );
 
       const metaTags = buildMetaForPost(post, siteTitle, canonicalUrl, hreflangLinks, siteUrl);
+      const rssLinks = rssEnabled ? buildRssLinks(post.lang, defaultLang, siteUrl) : '';
       const articleHtml = buildArticleHtml(post);
       const pageData = {
         pageType: post.translationKey === 'about' ? 'about' : 'post',
@@ -1512,6 +1711,7 @@ const run = async () => {
       const html = renderTemplate(postTemplate, {
         PAGE_TITLE: isAbout ? siteTitle : `${post.title} | ${siteTitle}`,
         META_TAGS: metaTags,
+        RSS_LINKS: rssLinks,
         ICON_LINKS: iconLinks,
         FONT_LINKS: fontLinks,
         THEME_LINKS: themeLinks,
@@ -1547,6 +1747,14 @@ const run = async () => {
     );
   }
 
+  if (rssOutputs.length > 0) {
+    await Promise.all(
+      rssOutputs.map((feed) =>
+        writeFile(path.join(buildDir, stripLeadingSlash(feed.path)), feed.xml)
+      )
+    );
+  }
+
   await Promise.all(
     listDataByLang.map(async (group) => {
       const pageUrl = buildListUrl(group.lang, defaultLang);
@@ -1572,6 +1780,7 @@ const run = async () => {
         null,
         hreflangLinks
       );
+      const rssLinks = rssEnabled ? buildRssLinks(group.lang, defaultLang, siteUrl) : '';
 
       const pageData = {
         pageType: 'list',
@@ -1603,6 +1812,7 @@ const run = async () => {
       const html = renderTemplate(listTemplate, {
         PAGE_TITLE: `${siteTitle}`,
         META_TAGS: metaTags,
+        RSS_LINKS: rssLinks,
         ICON_LINKS: iconLinks,
         FONT_LINKS: fontLinks,
         THEME_LINKS: themeLinks,
