@@ -837,8 +837,17 @@ const buildTocHtml = (tocItems, lang) => {
   return `\n    <aside class="article-toc" data-toc>\n      <button class="toc-toggle" type="button" data-toc-toggle aria-expanded="false">\n        <span class="toc-toggle-label">${escapeHtml(title)}</span>\n        <span class="toc-toggle-icon" aria-hidden="true">⌄</span>\n      </button>\n      <div class="toc-panel" data-toc-panel>\n        <div class="toc-title">${escapeHtml(title)}</div>\n        <ol class="toc-list">${items}\n        </ol>\n      </div>\n    </aside>\n  `;
 };
 
-const buildCardHtml = (post) => {
+const formatShortDate = (dateStr) => {
+  if (!dateStr || dateStr.length < 10) {
+    return dateStr || '';
+  }
+  return dateStr.slice(5);
+};
+
+const buildCardHtml = (post, sortedCategoryNames) => {
   const categoryLabel = post.categories[0] || 'General';
+  const catIndex = sortedCategoryNames ? sortedCategoryNames.indexOf(categoryLabel) % 5 : 0;
+  const dataCat = catIndex === -1 ? 0 : catIndex;
   const coverHtml = post.coverPicture
     ? buildPictureHtml(post.coverPicture, {
         alt: post.title,
@@ -846,10 +855,9 @@ const buildCardHtml = (post) => {
         loading: 'lazy',
       })
     : '';
+  const shortDate = formatShortDate(post.date);
 
-  return `\n<a class="card${post.coverPicture ? ' has-image' : ''}" href="${post.url}">\n  <div class="card-content-wrapper">\n    <div class="card-date">${escapeHtml(post.date)} · ${escapeHtml(
-    categoryLabel.toUpperCase()
-  )}</div>\n    <div class="card-title">${escapeHtml(post.title)}</div>\n    <div class="card-excerpt">${escapeHtml(post.excerpt)}</div>\n  </div>\n  ${coverHtml}\n</a>\n`;
+  return `\n<a class="card${post.coverPicture ? ' has-image' : ''}" href="${post.url}">\n  <div class="card-content-wrapper">\n    <div class="card-title" data-cat="${dataCat}" data-category-name="${escapeHtml(categoryLabel)}">${escapeHtml(post.title)}</div>\n    <span class="card-date">${escapeHtml(shortDate)}</span>\n  </div>\n  ${coverHtml}\n</a>\n`;
 };
 
 const buildMetaTags = (tags) =>
@@ -1041,7 +1049,7 @@ const buildListUrl = (lang, defaultLang) => {
   return `${LIST_BASE}${langSegment}/`;
 };
 
-const buildListSectionsHtml = (items) => {
+const buildListSectionsHtml = (items, sortedCategoryNames) => {
   const groups = [];
   items.forEach((item) => {
     const year = item.date ? item.date.slice(0, 4) : 'Unknown';
@@ -1055,7 +1063,7 @@ const buildListSectionsHtml = (items) => {
 
   return groups
     .map((group) => {
-      const cards = group.items.map((item) => buildCardHtml(item)).join('');
+      const cards = group.items.map((item) => buildCardHtml(item, sortedCategoryNames)).join('');
       return `\n<section class="year-section">\n  <h2 class="year-heading">${escapeHtml(
         group.year
       )}</h2>\n  <div class="year-posts">${cards}</div>\n</section>\n`;
@@ -1204,6 +1212,13 @@ const renderMarkdownWithImages = async ({
   return { html: md.renderer.render(tokens, md.options, env), toc };
 };
 
+const copyFuseAssets = async (targetDir) => {
+  const fusePath = path.resolve('node_modules/fuse.js/dist/fuse.mjs');
+  if (await pathExists(fusePath)) {
+    await fs.copyFile(fusePath, path.join(targetDir, 'fuse.mjs'));
+  }
+};
+
 const copyKatexAssets = async (targetDir) => {
   const katexDir = path.resolve('node_modules/katex/dist');
   if (!(await pathExists(katexDir))) {
@@ -1277,6 +1292,7 @@ const copyThemeAssets = async (targetDir, fontText, themeAssets) => {
   }
 
   await copyKatexAssets(targetDir);
+  await copyFuseAssets(targetDir);
 };
 
 const writePage = async (targetDir, html) => {
@@ -1534,7 +1550,12 @@ const run = async () => {
   await Promise.all(
     listDataByLang.map(async (group) => {
       const pageUrl = buildListUrl(group.lang, defaultLang);
-      const listHtml = buildListSectionsHtml(group.items);
+      const categorySet = new Set();
+      group.items.forEach((item) => {
+        (item.categories || []).forEach((cat) => categorySet.add(cat));
+      });
+      const sortedCategoryNames = Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+      const listHtml = buildListSectionsHtml(group.items, sortedCategoryNames);
       const canonicalUrl = buildUrl(siteUrl, pageUrl);
       const otherLang = languages.find((lang) => lang !== group.lang) || null;
       const hreflangLinks = buildHreflangLinks(
@@ -1594,6 +1615,7 @@ const run = async () => {
         SITE_TITLE: siteTitle,
         LIST_CONTENT: listHtml,
         LANG_SWITCH_MODE: otherLang ? 'toggle' : 'hidden',
+        SEARCH_PLACEHOLDER: labels.searchPlaceholder,
         PAGE_DATA: JSON.stringify(pageData, null, 2),
       });
 

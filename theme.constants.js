@@ -3,8 +3,9 @@ export const THEME_CONSTANTS = {
     navAbout: 'About',
     navBlog: 'Blog',
     filterAll: 'All',
+    searchPlaceholder: 'Search...',
   },
-  uiText: ['About', 'Blog', 'All', 'EN', '中文', 'Auto', 'Dark', 'Light'],
+  uiText: ['About', 'Blog', 'All', 'EN', '中文', 'Auto', 'Dark', 'Light', 'Search...'],
   icons: [
     { rel: 'icon', href: 'favicon-32.png', type: 'image/png', sizes: '32x32' },
     { rel: 'icon', href: 'favicon.png', type: 'image/png' },

@@ -13,12 +13,16 @@ const filterStorageKey = 'gen-blog-filter';
 const scrollStorageKey = 'gen-blog-scroll';
 const themeModes = ['auto', 'dark', 'light'];
 
+const searchInput = document.getElementById('search-input');
+
 const state = {
   filter: 'all',
   filterIndex: [],
   categories: [],
   initialPosts: pageData.posts || [],
   language: pageData.lang || 'en',
+  searchQuery: '',
+  fuseInstance: null,
 };
 
 const getScrollKey = () => `${scrollStorageKey}:${state.language}`;
@@ -219,6 +223,19 @@ const createPicture = (coverImage, altText) => {
   return picture;
 };
 
+const getCategoryColorIndex = (categoryName) => {
+  const sorted = state.categories.map((c) => c.name).sort((a, b) => a.localeCompare(b));
+  const idx = sorted.indexOf(categoryName);
+  return idx === -1 ? 0 : idx % 5;
+};
+
+const formatShortDate = (dateStr) => {
+  if (!dateStr || dateStr.length < 10) {
+    return dateStr || '';
+  }
+  return dateStr.slice(5);
+};
+
 const createCard = (post) => {
   const card = document.createElement('a');
   const hasImage = Boolean(post.coverImage);
@@ -228,20 +245,18 @@ const createCard = (post) => {
   const wrapper = document.createElement('div');
   wrapper.className = 'card-content-wrapper';
 
-  const meta = document.createElement('div');
-  meta.className = 'card-date';
   const primaryCategory = (post.categories && post.categories[0]) || 'General';
-  meta.textContent = `${post.date} · ${primaryCategory.toUpperCase()}`;
 
   const title = document.createElement('div');
   title.className = 'card-title';
   title.textContent = post.title;
+  title.dataset.cat = String(getCategoryColorIndex(primaryCategory));
 
-  const excerpt = document.createElement('div');
-  excerpt.className = 'card-excerpt';
-  excerpt.textContent = post.excerpt;
+  const date = document.createElement('span');
+  date.className = 'card-date';
+  date.textContent = formatShortDate(post.date);
 
-  wrapper.append(meta, title, excerpt);
+  wrapper.append(title, date);
   card.appendChild(wrapper);
 
   if (hasImage) {
@@ -296,15 +311,32 @@ const swapPosts = (nextPosts) => {
   renderPosts(nextPosts);
 };
 
+const getFilteredPosts = () => {
+  let posts =
+    state.filter === 'all'
+      ? state.initialPosts
+      : state.filterIndex.filter((post) =>
+          (post.categories || []).some((category) => slugifySegment(category) === state.filter)
+        );
+
+  if (state.searchQuery && state.fuseInstance) {
+    const searchResults = state.fuseInstance.search(state.searchQuery);
+    const matchKeys = new Set(searchResults.map((r) => r.item.translationKey));
+    posts = posts.filter((post) => matchKeys.has(post.translationKey));
+  }
+
+  return posts;
+};
+
 const renderFilteredPosts = () => {
-  if (state.filter === 'all') {
-    swapPosts(state.initialPosts);
+  const posts = getFilteredPosts();
+  if (posts.length === 0 && (state.filter !== 'all' || state.searchQuery)) {
+    if (grid) {
+      grid.innerHTML = '<div class="search-empty">No posts found.</div>';
+    }
     return;
   }
-  const filtered = state.filterIndex.filter((post) =>
-    (post.categories || []).some((category) => slugifySegment(category) === state.filter)
-  );
-  swapPosts(filtered);
+  swapPosts(posts);
 };
 
 const loadFilterIndex = async () => {
@@ -316,6 +348,58 @@ const loadFilterIndex = async () => {
     throw new Error('Failed to load filter index');
   }
   return response.json();
+};
+
+const colorizeExistingCards = () => {
+  const titleEls = document.querySelectorAll('.card-title');
+  titleEls.forEach((el) => {
+    if (el.dataset.cat !== undefined) {
+      return;
+    }
+    const card = el.closest('.card');
+    if (!card) {
+      return;
+    }
+    const catEl = card.querySelector('[data-category-name]');
+    if (!catEl) {
+      return;
+    }
+    const categoryName = catEl.dataset.categoryName;
+    const original = state.categories.find(
+      (c) => c.name.toLowerCase() === categoryName.toLowerCase()
+    );
+    if (original) {
+      el.dataset.cat = String(getCategoryColorIndex(original.name));
+    }
+  });
+};
+
+const initSearch = async () => {
+  if (!searchInput) {
+    return;
+  }
+  try {
+    const module = await import('/fuse.mjs');
+    const Fuse = module.default || module;
+    state.fuseInstance = new Fuse(state.filterIndex, {
+      keys: ['title', 'excerpt'],
+      threshold: 0.35,
+      ignoreLocation: true,
+    });
+
+    let debounceTimer = null;
+    searchInput.addEventListener('input', () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => {
+        state.searchQuery = searchInput.value.trim();
+        renderFilteredPosts();
+      }, 200);
+    });
+  } catch (error) {
+    console.error('Failed to load Fuse.js:', error);
+  }
 };
 
 const initFilters = async () => {
@@ -341,9 +425,11 @@ const initFilters = async () => {
       state.filter = 'all';
     }
     renderFilters();
+    colorizeExistingCards();
     if (state.filter !== 'all') {
       renderFilteredPosts();
     }
+    await initSearch();
   } catch (error) {
     console.error(error);
   }

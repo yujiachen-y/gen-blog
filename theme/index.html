@@ -112,7 +112,12 @@
         </div>
       </nav>
       <div class="filter-bar">
-        <div id="filter-pills" class="filter-pills"></div>
+        <div class="filter-bar-row">
+          <div id="filter-pills" class="filter-pills"></div>
+          <div class="search-box">
+            <input type="search" id="search-input" class="search-input" placeholder="{{SEARCH_PLACEHOLDER}}" autocomplete="off" />
+          </div>
+        </div>
       </div>
 
       <main id="grid-container" class="grid-container">{{LIST_CONTENT}}</main>

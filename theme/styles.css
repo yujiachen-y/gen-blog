@@ -36,6 +36,12 @@
   --table-border: rgba(0, 0, 0, 0.12);
   --table-header-bg: rgba(0, 0, 0, 0.03);
 
+  --cat-0: hsl(210, 35%, 45%);
+  --cat-1: hsl(25, 35%, 45%);
+  --cat-2: hsl(150, 30%, 40%);
+  --cat-3: hsl(280, 30%, 45%);
+  --cat-4: hsl(350, 30%, 45%);
+
   --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body: 'Iowan Old Style', 'Times New Roman', serif;
   --nav-height: 6.5rem;
@@ -66,6 +72,12 @@
   --pill-hover-text: #f2f2f2;
   --pill-active-bg: #2a2a2a;
   --pill-active-text: #f2f2f2;
+
+  --cat-0: hsl(210, 40%, 65%);
+  --cat-1: hsl(25, 40%, 65%);
+  --cat-2: hsl(150, 35%, 60%);
+  --cat-3: hsl(280, 35%, 60%);
+  --cat-4: hsl(350, 35%, 60%);
 
   --view-bg: #111;
   --callout-bg: rgba(255, 255, 255, 0.06);
@@ -106,6 +118,12 @@
     --pill-hover-text: #f2f2f2;
     --pill-active-bg: #2a2a2a;
     --pill-active-text: #f2f2f2;
+
+    --cat-0: hsl(210, 40%, 65%);
+    --cat-1: hsl(25, 40%, 65%);
+    --cat-2: hsl(150, 35%, 60%);
+    --cat-3: hsl(280, 35%, 60%);
+    --cat-4: hsl(350, 35%, 60%);
 
     --view-bg: #111;
     --callout-bg: rgba(255, 255, 255, 0.06);
@@ -531,7 +549,7 @@ body.view-article .navbar .action-controls {
 }
 
 .year-section {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .year-section:last-child {
@@ -540,11 +558,13 @@ body.view-article .navbar .action-controls {
 
 .year-heading {
   font-family: var(--font-ui);
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
   letter-spacing: 0.02em;
-  margin: 1.5rem 0 0.8rem;
+  margin: 1.5rem 0 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--card-border);
 }
 
 .year-section:first-child .year-heading {
@@ -554,18 +574,14 @@ body.view-article .navbar .action-controls {
 .year-posts {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0;
 }
 
-/* Card */
-/* List Item (formerly Card) */
 /* List Item */
 .card {
-  background: var(--card-bg-hover);
-  border-radius: 14px;
-  padding: 1.2rem 1.5rem;
-  /* Add horizontal breathing room */
-  box-shadow: var(--card-shadow);
+  background: none;
+  border-radius: 0;
+  padding: 1rem 0;
   cursor: pointer;
   display: flex;
   flex-direction: row;
@@ -574,74 +590,50 @@ body.view-article .navbar .action-controls {
   min-height: auto;
   height: auto;
   border: none;
+  border-bottom: 1px solid var(--card-border);
   margin-bottom: 0;
   position: relative;
   overflow: visible;
-  transition:
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
   text-decoration: none;
   color: inherit;
 }
 
 .card:last-child {
   margin-bottom: 0;
+  border-bottom: none;
 }
 
-.card:hover {
-  transform: scale(1.02);
-  box-shadow: var(--card-shadow-hover);
-  opacity: 1;
-  z-index: 10;
-}
-
-/* Date / Meta */
+/* Date (right-aligned, short format) */
 .card-date {
   font-family: var(--font-ui);
-  font-size: 0.68rem;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 400;
   color: var(--text-tertiary);
-  margin-bottom: 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
 
 /* Title */
 .card-title {
   font-family: var(--font-body);
-  /* Serif for titles */
   font-size: 1.4rem;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.3;
   color: var(--text-primary);
-  margin-bottom: 0.35rem;
   letter-spacing: -0.02em;
-  transition: color 0.2s ease;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  flex: 1;
 }
 
-.card:hover .card-title {
-  color: var(--text-secondary);
-  /* Subtle shift on hover */
-}
-
-/* Excerpt */
-.card-excerpt {
-  color: var(--text-secondary);
-  font-family: var(--font-ui);
-  font-size: 0.92rem;
-  line-height: 1.4;
-  font-weight: 300;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  /* Fewer lines for cleaner look */
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* Category dot */
+.card-title::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  margin-right: 0.55rem;
+  vertical-align: 0.25em;
 }
 
 .card-content-wrapper {
@@ -649,9 +641,10 @@ body.view-article .navbar .action-controls {
   z-index: 1;
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 1rem;
   padding-right: 1.25rem;
-  /* Space for image if valid */
 }
 
 /* Image in List View */
@@ -668,17 +661,10 @@ body.view-article .navbar .action-controls {
   flex-shrink: 0;
   display: block;
   margin-left: 1.25rem;
-  /* Clean margin from text */
-  transition: transform 0.3s ease;
 }
 
 .card picture {
   display: block;
-}
-
-.card:hover .card-image {
-  transform: scale(1.03);
-  /* Subtle zoom on hover */
 }
 
 /* Pagination */
@@ -739,11 +725,8 @@ body.view-article .navbar .action-controls {
    But we need to handle .has-image class logic override 
 */
 
-/* Normalized List Item with Image - Remove old overrides */
 .card.has-image {
-  background: var(--card-bg-hover);
-  /* Consistent with other cards */
-  padding: 1.2rem 1.5rem;
+  padding: 1rem 0;
 }
 
 /* Ensure content wrapper flows normally */
@@ -757,20 +740,67 @@ body.view-article .navbar .action-controls {
   /* Reset flex */
 }
 
-/* Text colors should match standard card */
-.card.has-image .card-date {
-  color: var(--text-tertiary);
-}
-
+/* Image cards match standard style */
 .card.has-image .card-title {
   color: var(--text-primary);
 }
 
-.card.has-image .card-excerpt {
-  color: var(--text-secondary);
-  -webkit-line-clamp: 2;
-  /* Match standard */
-  line-clamp: 2;
+/* Category dot color selectors */
+.card-title[data-cat='0']::before {
+  background: var(--cat-0);
+}
+
+.card-title[data-cat='1']::before {
+  background: var(--cat-1);
+}
+
+.card-title[data-cat='2']::before {
+  background: var(--cat-2);
+}
+
+.card-title[data-cat='3']::before {
+  background: var(--cat-3);
+}
+
+.card-title[data-cat='4']::before {
+  background: var(--cat-4);
+}
+
+/* Filter bar row */
+.filter-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Search input */
+.search-input {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  width: 180px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.search-input:focus {
+  border-color: var(--text-secondary);
+}
+
+/* Search empty state */
+.search-empty {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-tertiary);
 }
 
 /* Article View (Expanded) */
@@ -1332,6 +1362,15 @@ body.view-article .navbar .action-controls {
     padding: 0 6% 0.5rem;
   }
 
+  .filter-bar-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
   .filter-pills {
     width: 100%;
     flex-wrap: nowrap;
@@ -1359,9 +1398,7 @@ body.view-article .navbar .action-controls {
   }
 
   .card {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 1.2rem 1rem;
+    padding: 0.75rem 0;
   }
 
   .card-content-wrapper {
