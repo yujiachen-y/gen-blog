@@ -5,6 +5,7 @@ import matter from 'gray-matter';
 import { createMarkdownRenderer } from './markdown.js';
 import { processImage, processImageSource } from './images.js';
 import { subsetThemeFonts } from './fonts.js';
+import { THEME_CONSTANTS } from '../theme.constants.js';
 
 const args = process.argv.slice(2);
 
@@ -134,8 +135,40 @@ const pathExists = async (filePath) => {
 
 const readTemplate = async (fileName) => fs.readFile(path.join(themeDir, fileName), 'utf8');
 
-const readSiteConfig = async () => {
-  const configPath = path.join(inputDir, 'blog.config.json');
+const resolveConfigDir = async (rootDir) => {
+  const configDir = path.join(rootDir, '.blog');
+  if (await pathExists(path.join(configDir, 'blog.config.json'))) {
+    return configDir;
+  }
+  if (await pathExists(path.join(rootDir, 'blog.config.json'))) {
+    return rootDir;
+  }
+  return configDir;
+};
+
+const normalizeStringList = (value, fieldName) => {
+  if (value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      throw new Error(`${fieldName} must be a non-empty string`);
+    }
+    return [trimmed];
+  }
+  if (Array.isArray(value)) {
+    const list = value.map((item) => String(item || '').trim());
+    if (list.length === 0 || list.some((item) => !item)) {
+      throw new Error(`${fieldName} must be a non-empty string or array of non-empty strings`);
+    }
+    return list;
+  }
+  throw new Error(`${fieldName} must be a non-empty string or array of strings`);
+};
+
+const readSiteConfig = async (configDir) => {
+  const configPath = path.join(configDir, 'blog.config.json');
   try {
     const raw = await fs.readFile(configPath, 'utf8');
     const parsed = JSON.parse(raw);
@@ -150,10 +183,19 @@ const readSiteConfig = async () => {
     if (parsed.siteUrl !== undefined && !siteUrl) {
       throw new Error('blog.config.json: siteUrl must be a non-empty string');
     }
-    return { siteTitle, siteUrl };
+    const allowRemoteImages =
+      parsed.allowRemoteImages === undefined ? false : parsed.allowRemoteImages;
+    if (parsed.allowRemoteImages !== undefined && typeof allowRemoteImages !== 'boolean') {
+      throw new Error('blog.config.json: allowRemoteImages must be a boolean');
+    }
+    const fontCssUrls =
+      parsed.fontCssUrls === undefined
+        ? null
+        : normalizeStringList(parsed.fontCssUrls, 'blog.config.json: fontCssUrls');
+    return { siteTitle, siteUrl, allowRemoteImages, fontCssUrls };
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return { siteTitle: null, siteUrl: null };
+      return { siteTitle: null, siteUrl: null, allowRemoteImages: false, fontCssUrls: null };
     }
     throw error;
   }
@@ -164,6 +206,62 @@ const renderTemplate = (template, values) =>
     (acc, [key, value]) => acc.replaceAll(`{{${key}}}`, String(value ?? '')),
     template
   );
+
+const buildFontLinks = (urls) => {
+  if (!urls || urls.length === 0) {
+    return '';
+  }
+  const links = [];
+  if (urls.some((url) => url.includes('fonts.googleapis.com'))) {
+    links.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
+    links.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
+  }
+  urls.forEach((url) => {
+    links.push(`<link rel="stylesheet" href="${escapeHtml(url)}" />`);
+  });
+  return links.join('\n');
+};
+
+const buildIconLinks = (icons) =>
+  icons
+    .map((icon) => {
+      const attrs = [
+        `rel="${escapeHtml(icon.rel)}"`,
+        `href="${escapeHtml(icon.href)}"`,
+        icon.type ? `type="${escapeHtml(icon.type)}"` : null,
+        icon.sizes ? `sizes="${escapeHtml(icon.sizes)}"` : null,
+      ]
+        .filter(Boolean)
+        .join(' ');
+      return `<link ${attrs} />`;
+    })
+    .join('\n');
+
+const resolveThemeAssets = async (configDir) => {
+  const themeConfigDir = path.join(configDir, 'theme');
+  const iconCandidates = await Promise.all(
+    THEME_CONSTANTS.icons.map(async (icon) => {
+      const sourcePath = path.join(themeConfigDir, icon.href);
+      if (!(await pathExists(sourcePath))) {
+        return null;
+      }
+      return {
+        ...icon,
+        href: `/${icon.href}`,
+        sourcePath,
+      };
+    })
+  );
+  const icons = iconCandidates.filter(Boolean);
+  const fontsCssPath = path.join(themeConfigDir, THEME_CONSTANTS.assets.fontsCss);
+  const fontsDir = path.join(themeConfigDir, THEME_CONSTANTS.assets.fontsDir);
+  return {
+    themeConfigDir,
+    icons,
+    fontsCssPath: (await pathExists(fontsCssPath)) ? fontsCssPath : null,
+    fontsDir: (await pathExists(fontsDir)) ? fontsDir : null,
+  };
+};
 
 const normalizeLanguage = (value) => {
   if (!value) {
@@ -195,7 +293,7 @@ const BASE_FONT_CHARS =
   '`' +
   `“”‘’` +
   `()[]{}<>+-=_/\\|@#$%^&*~`;
-const UI_FONT_TEXT = 'About EN 中文 目录 Contents';
+const UI_FONT_TEXT = THEME_CONSTANTS.uiText.join(' ');
 
 const collectFontText = (posts, siteTitle) => {
   const parts = [BASE_FONT_CHARS, UI_FONT_TEXT, siteTitle || ''];
@@ -1000,6 +1098,7 @@ const renderMarkdownWithImages = async ({
   imageOptions,
   imageIndex,
   buildImagePath,
+  allowRemoteImages,
 }) => {
   const renderer = createMarkdownRenderer({ allowHtml: false });
   const { md } = renderer;
@@ -1061,6 +1160,9 @@ const renderMarkdownWithImages = async ({
     imageSources.map(async (src) => {
       const relativePath = imagePathMap.get(src);
       if (isExternalAsset(src)) {
+        if (isRemoteAsset(src) && !allowRemoteImages) {
+          throw new Error(`${filePath}: remote images are disabled (${src})`);
+        }
         const cacheKey = `external:${relativePath}:${src}`;
         if (!imageCache.has(cacheKey)) {
           imageCache.set(
@@ -1145,36 +1247,55 @@ const copyKatexAssets = async (targetDir) => {
   );
 };
 
-const copyThemeAssets = async (targetDir, fontText) => {
+const copyThemeAssets = async (targetDir, fontText, themeAssets) => {
   await fs.copyFile(path.join(themeDir, 'styles.css'), path.join(targetDir, 'styles.css'));
   await fs.copyFile(path.join(themeDir, 'app.js'), path.join(targetDir, 'app.js'));
-  await fs.copyFile(path.join(themeDir, 'favicon.png'), path.join(targetDir, 'favicon.png'));
-  await fs.copyFile(path.join(themeDir, 'favicon-32.png'), path.join(targetDir, 'favicon-32.png'));
-  await fs.copyFile(
-    path.join(themeDir, 'apple-touch-icon.png'),
-    path.join(targetDir, 'apple-touch-icon.png')
-  );
-  const fontsDir = path.join(themeDir, 'fonts');
-  try {
-    const targetFontsDir = path.join(targetDir, 'fonts');
-    if (fontText) {
-      await subsetThemeFonts({ sourceDir: fontsDir, targetDir: targetFontsDir, text: fontText });
-    } else {
-      const entries = await fs.readdir(fontsDir, { withFileTypes: true });
-      await ensureDir(targetFontsDir);
-      await Promise.all(
-        entries
-          .filter((entry) => entry.isFile())
-          .map((entry) =>
-            fs.copyFile(path.join(fontsDir, entry.name), path.join(targetFontsDir, entry.name))
-          )
-      );
-    }
-  } catch (error) {
-    if (error && error.code !== 'ENOENT') {
-      throw error;
+
+  if (themeAssets && themeAssets.fontsCssPath) {
+    await fs.copyFile(
+      themeAssets.fontsCssPath,
+      path.join(targetDir, THEME_CONSTANTS.assets.fontsCss)
+    );
+  }
+
+  if (themeAssets && themeAssets.fontsDir) {
+    try {
+      const targetFontsDir = path.join(targetDir, THEME_CONSTANTS.assets.fontsDir);
+      if (fontText) {
+        await subsetThemeFonts({
+          sourceDir: themeAssets.fontsDir,
+          targetDir: targetFontsDir,
+          text: fontText,
+        });
+      } else {
+        const entries = await fs.readdir(themeAssets.fontsDir, { withFileTypes: true });
+        await ensureDir(targetFontsDir);
+        await Promise.all(
+          entries
+            .filter((entry) => entry.isFile())
+            .map((entry) =>
+              fs.copyFile(
+                path.join(themeAssets.fontsDir, entry.name),
+                path.join(targetFontsDir, entry.name)
+              )
+            )
+        );
+      }
+    } catch (error) {
+      if (error && error.code !== 'ENOENT') {
+        throw error;
+      }
     }
   }
+
+  if (themeAssets && themeAssets.icons.length > 0) {
+    await Promise.all(
+      themeAssets.icons.map((icon) =>
+        fs.copyFile(icon.sourcePath, path.join(targetDir, path.basename(icon.sourcePath)))
+      )
+    );
+  }
+
   await copyKatexAssets(targetDir);
 };
 
@@ -1188,9 +1309,19 @@ const run = async () => {
     throw new Error('Output directory must be different from input directory.');
   }
 
-  const siteConfig = await readSiteConfig();
+  const configDir = await resolveConfigDir(inputDir);
+  const defaultConfigDir = path.join(inputDir, '.blog');
+  const siteConfig = await readSiteConfig(configDir);
   const siteUrl = getArgValue('--site-url', siteConfig.siteUrl || null);
   const siteTitle = siteConfig.siteTitle || 'Gen Blog';
+  const themeAssets = await resolveThemeAssets(defaultConfigDir);
+  const fontLinks = buildFontLinks(siteConfig.fontCssUrls);
+  const themeLinks = themeAssets.fontsCssPath
+    ? `<link rel="stylesheet" href="/${THEME_CONSTANTS.assets.fontsCss}" />`
+    : '';
+  const iconLinks = themeAssets.icons.length > 0 ? buildIconLinks(themeAssets.icons) : '';
+  const labels = THEME_CONSTANTS.labels;
+  const allowRemoteImages = siteConfig.allowRemoteImages;
   const preserveOutput = await shouldPreserveOutput(outputDir);
   const buildDir = preserveOutput
     ? await fs.mkdtemp(path.join(os.tmpdir(), 'gen-blog-'))
@@ -1216,7 +1347,7 @@ const run = async () => {
   const defaultLang = languages.includes('zh') ? 'zh' : languages[0] || 'en';
 
   const fontText = collectFontText(posts, siteTitle);
-  await copyThemeAssets(buildDir, fontText);
+  await copyThemeAssets(buildDir, fontText, themeAssets);
 
   const imageCache = new Map();
   const imageIndex = await buildImageIndex(inputDir);
@@ -1237,6 +1368,11 @@ const run = async () => {
       if (post.coverImage) {
         const coverRelativePath = buildPostCoverPath(post);
         if (isExternalAsset(post.coverImage)) {
+          if (isRemoteAsset(post.coverImage) && !allowRemoteImages) {
+            throw new Error(
+              `${post.sourcePath}: remote cover images are disabled (${post.coverImage})`
+            );
+          }
           const cacheKey = `external:${coverRelativePath}:${post.coverImage}`;
           if (!imageCache.has(cacheKey)) {
             imageCache.set(
@@ -1277,6 +1413,7 @@ const run = async () => {
         imageOptions,
         imageIndex,
         buildImagePath: (index) => buildPostImagePath(post, index),
+        allowRemoteImages,
       });
       const tocHtml = buildTocHtml(toc, post.lang);
       const tocLayoutClass = tocHtml ? 'has-toc' : 'no-toc';
@@ -1367,15 +1504,25 @@ const run = async () => {
         lang: post.lang,
         langSwitchUrl: post.langSwitchUrl || null,
         langSwitcherMode: post.langSwitchUrl ? 'toggle' : 'hidden',
+        labels: {
+          navAbout: labels.navAbout,
+          navBlog: labels.navBlog,
+          filterAll: labels.filterAll,
+        },
       };
 
       const html = renderTemplate(postTemplate, {
         PAGE_TITLE: `${post.title} | ${siteTitle}`,
         META_TAGS: metaTags,
+        ICON_LINKS: iconLinks,
+        FONT_LINKS: fontLinks,
+        THEME_LINKS: themeLinks,
         LANG: post.lang,
         HOME_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
         ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
         BLOG_URL: buildListUrl(post.lang, defaultLang),
+        NAV_ABOUT_LABEL: labels.navAbout,
+        NAV_BLOG_LABEL: labels.navBlog,
         SITE_TITLE: siteTitle,
         ARTICLE_CONTENT: articleHtml,
         TOC: post.tocHtml,
@@ -1416,6 +1563,11 @@ const run = async () => {
         langSwitchUrl: otherLang ? buildListUrl(otherLang, defaultLang) : null,
         langSwitcherMode: otherLang ? 'toggle' : 'hidden',
         filterIndexUrl: '/posts/filter-index.json',
+        labels: {
+          navAbout: labels.navAbout,
+          navBlog: labels.navBlog,
+          filterAll: labels.filterAll,
+        },
         posts: group.items.map((item) => ({
           translationKey: item.translationKey,
           title: item.title,
@@ -1435,10 +1587,15 @@ const run = async () => {
       const html = renderTemplate(listTemplate, {
         PAGE_TITLE: `${siteTitle}`,
         META_TAGS: metaTags,
+        ICON_LINKS: iconLinks,
+        FONT_LINKS: fontLinks,
+        THEME_LINKS: themeLinks,
         LANG: group.lang,
         HOME_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
         ABOUT_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
         BLOG_URL: buildListUrl(group.lang, defaultLang),
+        NAV_ABOUT_LABEL: labels.navAbout,
+        NAV_BLOG_LABEL: labels.navBlog,
         SITE_TITLE: siteTitle,
         LIST_CONTENT: listHtml,
         LANG_SWITCH_MODE: otherLang ? 'toggle' : 'hidden',

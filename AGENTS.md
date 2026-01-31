@@ -4,7 +4,7 @@
 
 - `scripts/` contains the generator entrypoint (`scripts/generate.js`). It reads Markdown and produces `dist/` output.
 - `theme/` holds the SPA shell (`theme/index.html`, `theme/app.js`) and the shared style sheet (`theme/styles.css`).
-- `assets/` stores local images and other static assets referenced by frontmatter (e.g., `assets/images/cover-silence.png`).
+- `assets/` stores local images and other static assets referenced by frontmatter (e.g., `assets/images/cover-example.png`).
 - `.codex/skills/` contains repo skills, including `gen-blog-quality-baseline` for output quality checks.
 - `dist/` is generated output and is ignored by git; don’t edit it manually.
 - `.sample-markdown/` is for local demos only and is ignored by git.

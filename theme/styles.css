@@ -1,25 +1,3 @@
-@font-face {
-  font-family: 'LXGW WenKai';
-  src:
-    local('LXGW WenKai'),
-    local('LXGW WenKai Regular'),
-    url('/fonts/LXGWWenKai-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'LXGW WenKai';
-  src:
-    local('LXGW WenKai'),
-    local('LXGW WenKai Medium'),
-    url('/fonts/LXGWWenKai-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
   /* Light Theme (Default) */
   --bg-color: #f7f7f7;
@@ -58,8 +36,8 @@
   --table-border: rgba(0, 0, 0, 0.12);
   --table-header-bg: rgba(0, 0, 0, 0.03);
 
-  --font-ui: 'Inter', 'LXGW WenKai', sans-serif;
-  --font-body: 'LXGW WenKai', 'Lora', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: 'Iowan Old Style', 'Times New Roman', serif;
   --nav-height: 6.5rem;
   --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   color-scheme: light;

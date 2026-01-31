@@ -1,5 +1,6 @@
 const pageDataEl = document.getElementById('page-data');
 const pageData = pageDataEl ? JSON.parse(pageDataEl.textContent || '{}') : {};
+const uiLabels = pageData.labels || {};
 
 const grid = document.getElementById('grid-container');
 const filterPills = document.getElementById('filter-pills');
@@ -194,7 +195,7 @@ const renderFilters = () => {
     return;
   }
   filterPills.innerHTML = '';
-  filterPills.appendChild(createFilterButton('All', 'all'));
+  filterPills.appendChild(createFilterButton(uiLabels.filterAll || 'All', 'all'));
   state.categories.forEach((category) => {
     filterPills.appendChild(createFilterButton(category.name, category.slug));
   });
@@ -410,12 +411,12 @@ const updateActiveNav = () => {
   const navLinks = document.querySelectorAll('.nav-link-button');
   navLinks.forEach((link) => {
     let isActive = false;
-    // Check based on Page Type logic
-    if (pageData.pageType === 'about' && link.textContent.trim() === 'About') {
+    const navType = link.dataset.nav;
+    if (pageData.pageType === 'about' && navType === 'about') {
       isActive = true;
     } else if (
       (pageData.pageType === 'list' || pageData.pageType === 'post') &&
-      link.textContent.trim() === 'Blog'
+      navType === 'blog'
     ) {
       isActive = true;
     }

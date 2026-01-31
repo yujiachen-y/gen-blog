@@ -5,14 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{PAGE_TITLE}}</title>
     {{META_TAGS}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap"
-      rel="stylesheet">
-    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    {{ICON_LINKS}}
+    {{FONT_LINKS}}
     <link rel="stylesheet" href="/styles.css" />
+    {{THEME_LINKS}}
   </head>
   <body data-page="list">
     <div id="root">
@@ -20,8 +16,8 @@
         <div class="nav-left">
           <a href="{{HOME_URL}}" class="brand">{{SITE_TITLE}}</a>
           <div class="nav-links">
-            <a class="nav-link-button" href="{{ABOUT_URL}}">About</a>
-            <a class="nav-link-button" href="{{BLOG_URL}}">Blog</a>
+            <a class="nav-link-button" href="{{ABOUT_URL}}" data-nav="about">{{NAV_ABOUT_LABEL}}</a>
+            <a class="nav-link-button" href="{{BLOG_URL}}" data-nav="blog">{{NAV_BLOG_LABEL}}</a>
           </div>
         </div>
         <div class="controls">

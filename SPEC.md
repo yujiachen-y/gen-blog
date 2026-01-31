@@ -5,10 +5,13 @@ Turn an Obsidian vault into a deployable static blog for `user.github.io`, with 
 
 ## Inputs
 - **Vault path**: provided as the first CLI argument to `npm run generate -- <vaultDir> <outputDir>`.
-- **Output path**: defaults to `dist/`, but must support writing into a GitHub Pages repo (e.g. `../yjc567.github.io`).
-- **Optional config**: `blog.config.json` at the vault root:
+- **Output path**: defaults to `dist/`, but must support writing into a GitHub Pages repo (e.g. `../yourname.github.io`).
+- **Optional config**: `blog.config.json` at `$VAULT/.blog/`:
   - `siteTitle` (string)
   - `siteUrl` (string)
+  - `allowRemoteImages` (boolean, default false; when true, remote images are downloaded into `assets/`)
+  - `fontCssUrls` (string or array of strings, optional external font stylesheets)
+  - Theme assets can live under `$VAULT/.blog/theme/` (icons, fonts, optional `fonts.css`).
   - All other settings use defaults in code.
 
 ## Frontmatter Schema (Fail‑Fast)
@@ -49,7 +52,7 @@ Non‑goals (current version):
 Supported image sources:
 - Local `.jpg/.jpeg/.png` inside the vault
 - Base64 `data:` URIs for PNG/JPEG
-- Remote HTTP(S) PNG/JPEG (fetched and re‑written)
+- Remote HTTP(S) PNG/JPEG (fetched and re‑written when `allowRemoteImages` is true)
 
 Processing rules:
 - Generate **WebP + fallback** (JPG/PNG).
