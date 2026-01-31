@@ -382,7 +382,7 @@ const initSearch = async () => {
     const module = await import('/fuse.mjs');
     const Fuse = module.default || module;
     state.fuseInstance = new Fuse(state.filterIndex, {
-      keys: ['title', 'excerpt'],
+      keys: ['title'],
       threshold: 0.35,
       ignoreLocation: true,
     });

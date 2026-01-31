@@ -45,7 +45,6 @@ blog_lang: zh | en
 blog_translation_key: design/quiet-interfaces
 blog_category:
   - Design
-blog_excerpt: ...
 ```
 
 ### Optional Frontmatter
@@ -60,7 +59,6 @@ blog_cover_image: assets/images/xxx.jpg
 - `blog_lang` must be `zh` or `en` -> **error**.
 - `blog_translation_key` must be unique across all posts -> **error**.
 - `blog_category` must be a non-empty array of strings -> **error**.
-- `blog_excerpt` must be non-empty -> **error**.
 - `blog_publish` must be `true` to include in output; all others ignored.
 
 ### About Page
@@ -114,7 +112,7 @@ Example:
 ## Filtering (Full List)
 
 - Generate a lightweight filter index (JSON) containing only minimal fields:
-  - `translation_key`, `lang`, `title`, `date`, `categories`, `excerpt`, `cover_image`.
+  - `translation_key`, `lang`, `title`, `date`, `categories`, `cover_image`.
 - Client loads this index once and filters across **all posts**.
 - Filtering remains client-side to preserve the demo’s animation style.
 
@@ -123,7 +121,7 @@ Example:
 ### Post Pages
 
 - `<title>` uses `blog_title`.
-- `meta description` uses `blog_excerpt`.
+- `meta description` uses `blog_title`.
 - `canonical` points to the post URL.
 - `hreflang` links the zh/en pair.
 - OG/Twitter meta uses cover image if available.

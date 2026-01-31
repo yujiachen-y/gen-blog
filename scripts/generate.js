@@ -301,9 +301,6 @@ const collectFontText = (posts, siteTitle) => {
     if (post.title) {
       parts.push(post.title);
     }
-    if (post.excerpt) {
-      parts.push(post.excerpt);
-    }
     if (post.date) {
       parts.push(post.date);
     }
@@ -876,7 +873,7 @@ const buildHreflangLinks = (translations) => {
 const buildCanonical = (url) => `<link rel="canonical" href="${url}" />`;
 
 const buildMetaForPost = (post, siteTitle, canonicalUrl, hreflangLinks, baseUrl) => {
-  const description = escapeHtml(post.excerpt);
+  const description = escapeHtml(post.title);
   const title = escapeHtml(`${post.title} | ${siteTitle}`);
   const ogImageSrc = post.coverPicture?.img?.src
     ? buildUrl(baseUrl, post.coverPicture.img.src)
@@ -1130,11 +1127,6 @@ const loadPosts = async () => {
         fileErrors.push(`${filePath}: blog_category must be a non-empty list`);
       }
 
-      const excerpt = data.blog_excerpt ? String(data.blog_excerpt).trim() : '';
-      if (!excerpt) {
-        fileErrors.push(`${filePath}: missing blog_excerpt`);
-      }
-
       const coverImage = data.blog_cover_image ? String(data.blog_cover_image).trim() : null;
 
       if (fileErrors.length > 0) {
@@ -1149,7 +1141,6 @@ const loadPosts = async () => {
         lang,
         translationKey,
         categories,
-        excerpt,
         coverImage,
         content,
       };
@@ -1664,7 +1655,6 @@ const run = async () => {
       title: post.title,
       date: post.date,
       categories: post.categories,
-      excerpt: post.excerpt,
       coverImage: post.coverPicture
         ? {
             webp: post.coverPicture.sources[0].src,
@@ -1798,7 +1788,6 @@ const run = async () => {
           title: item.title,
           date: item.date,
           categories: item.categories,
-          excerpt: item.excerpt,
           coverImage: item.coverPicture
             ? {
                 webp: item.coverPicture.sources[0].src,

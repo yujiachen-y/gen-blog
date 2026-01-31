@@ -23,7 +23,6 @@ Required for `blog_publish: true`:
 - `blog_lang`: `"zh"` or `"en"`
 - `blog_translation_key`: slug/path string
 - `blog_category`: non‑empty list of strings
-- `blog_excerpt`: string
 
 Optional:
 - `blog_cover_image`: local path or supported image source
