@@ -1005,7 +1005,7 @@ const buildPostGroups = (posts) => {
 
   const groups = Array.from(grouped.values()).map((group) => {
     const languages = Object.keys(group.translations);
-    const defaultLang = languages.includes('zh') ? 'zh' : languages[0];
+    const defaultLang = languages.includes('en') ? 'en' : languages[0];
     return {
       ...group,
       languages,
@@ -1041,26 +1041,6 @@ const buildListUrl = (lang, defaultLang) => {
   return `${LIST_BASE}${langSegment}/`;
 };
 
-const buildAboutAliasUrl = (lang, defaultLang) => {
-  const langSegment = lang === defaultLang ? '' : `/${lang}`;
-  return `/about${langSegment}/`;
-};
-
-const buildRedirectHtml = (targetUrl, canonicalUrl, siteTitle) => `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=${escapeHtml(targetUrl)}" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    ${canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : ''}
-    <title>${escapeHtml(siteTitle)} · Redirect</title>
-  </head>
-  <body>
-    <p>Redirecting to <a href="${escapeHtml(targetUrl)}">${escapeHtml(targetUrl)}</a>…</p>
-  </body>
-</html>
-`;
-
 const buildListSectionsHtml = (items) => {
   const groups = [];
   items.forEach((item) => {
@@ -1088,7 +1068,7 @@ const buildAboutUrl = (lang, defaultLang, aboutGroup) => {
     return buildListUrl(lang, defaultLang);
   }
   const targetLang = aboutGroup.languages.includes(lang) ? lang : aboutGroup.defaultLang;
-  return buildHomeUrl(targetLang, aboutGroup.defaultLang);
+  return buildPostUrl('about', targetLang, aboutGroup.defaultLang);
 };
 
 const renderMarkdownWithImages = async ({
@@ -1344,7 +1324,7 @@ const run = async () => {
 
   const nonAboutPosts = posts.filter((post) => post.translationKey !== 'about');
   const languages = Array.from(new Set(nonAboutPosts.map((post) => post.lang).filter(Boolean)));
-  const defaultLang = languages.includes('zh') ? 'zh' : languages[0] || 'en';
+  const defaultLang = languages.includes('en') ? 'en' : languages[0] || 'en';
 
   const fontText = collectFontText(posts, siteTitle);
   await copyThemeAssets(buildDir, fontText, themeAssets);
@@ -1483,6 +1463,8 @@ const run = async () => {
 
   await writeJson(path.join(buildDir, 'posts', 'filter-index.json'), filterIndex);
 
+  const aboutHtmlByLang = new Map();
+
   await Promise.all(
     postPages.map(async (post) => {
       const canonicalUrl = buildUrl(siteUrl, post.url);
@@ -1512,13 +1494,13 @@ const run = async () => {
       };
 
       const html = renderTemplate(postTemplate, {
-        PAGE_TITLE: `${post.title} | ${siteTitle}`,
+        PAGE_TITLE: isAbout ? siteTitle : `${post.title} | ${siteTitle}`,
         META_TAGS: metaTags,
         ICON_LINKS: iconLinks,
         FONT_LINKS: fontLinks,
         THEME_LINKS: themeLinks,
         LANG: post.lang,
-        HOME_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
+        HOME_URL: buildHomeUrl(post.lang, defaultLang),
         ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
         BLOG_URL: buildListUrl(post.lang, defaultLang),
         NAV_ABOUT_LABEL: labels.navAbout,
@@ -1533,8 +1515,21 @@ const run = async () => {
 
       const targetDir = path.join(buildDir, stripLeadingSlash(post.url));
       await writePage(targetDir, html);
+      if (isAbout) {
+        aboutHtmlByLang.set(post.lang, html);
+      }
     })
   );
+
+  if (aboutHtmlByLang.size > 0) {
+    await Promise.all(
+      Array.from(aboutHtmlByLang.entries()).map(async ([lang, html]) => {
+        const aliasUrl = buildAboutUrl(lang, defaultLang, aboutGroup);
+        const targetDir = path.join(buildDir, stripLeadingSlash(aliasUrl));
+        await writePage(targetDir, html);
+      })
+    );
+  }
 
   await Promise.all(
     listDataByLang.map(async (group) => {
@@ -1591,7 +1586,7 @@ const run = async () => {
         FONT_LINKS: fontLinks,
         THEME_LINKS: themeLinks,
         LANG: group.lang,
-        HOME_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
+        HOME_URL: buildHomeUrl(group.lang, defaultLang),
         ABOUT_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
         BLOG_URL: buildListUrl(group.lang, defaultLang),
         NAV_ABOUT_LABEL: labels.navAbout,
@@ -1606,19 +1601,6 @@ const run = async () => {
       await writePage(targetDir, html);
     })
   );
-
-  if (aboutGroup) {
-    await Promise.all(
-      aboutGroup.languages.map(async (lang) => {
-        const aliasUrl = buildAboutAliasUrl(lang, aboutGroup.defaultLang);
-        const targetUrl = buildHomeUrl(lang, aboutGroup.defaultLang);
-        const canonicalUrl = siteUrl ? buildUrl(siteUrl, targetUrl) : null;
-        const html = buildRedirectHtml(targetUrl, canonicalUrl, siteTitle);
-        const targetDir = path.join(buildDir, stripLeadingSlash(aliasUrl));
-        await writePage(targetDir, html);
-      })
-    );
-  }
 
   if (siteUrl) {
     const urls = [
