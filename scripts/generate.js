@@ -167,6 +167,20 @@ const normalizeStringList = (value, fieldName) => {
   throw new Error(`${fieldName} must be a non-empty string or array of strings`);
 };
 
+const parseCommentsConfig = (value) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('blog.config.json: comments must be an object');
+  }
+  const appId = value.appId === undefined ? '' : String(value.appId || '').trim();
+  if (!appId) {
+    throw new Error('blog.config.json: comments.appId must be a non-empty string');
+  }
+  return { appId };
+};
+
 const readSiteConfig = async (configDir) => {
   const configPath = path.join(configDir, 'blog.config.json');
   try {
@@ -192,10 +206,17 @@ const readSiteConfig = async (configDir) => {
       parsed.fontCssUrls === undefined
         ? null
         : normalizeStringList(parsed.fontCssUrls, 'blog.config.json: fontCssUrls');
-    return { siteTitle, siteUrl, allowRemoteImages, fontCssUrls };
+    const comments = parseCommentsConfig(parsed.comments);
+    return { siteTitle, siteUrl, allowRemoteImages, fontCssUrls, comments };
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return { siteTitle: null, siteUrl: null, allowRemoteImages: false, fontCssUrls: null };
+      return {
+        siteTitle: null,
+        siteUrl: null,
+        allowRemoteImages: false,
+        fontCssUrls: null,
+        comments: null,
+      };
     }
     throw error;
   }
@@ -1686,6 +1707,7 @@ const run = async () => {
       const metaTags = buildMetaForPost(post, siteTitle, canonicalUrl, hreflangLinks, siteUrl);
       const rssLinks = rssEnabled ? buildRssLinks(post.lang, defaultLang, siteUrl) : '';
       const articleHtml = buildArticleHtml(post);
+      const commentsConfig = siteConfig.comments;
       const pageData = {
         pageType: post.translationKey === 'about' ? 'about' : 'post',
         lang: post.lang,
@@ -1696,6 +1718,15 @@ const run = async () => {
           navBlog: labels.navBlog,
           filterAll: labels.filterAll,
         },
+        comments:
+          isAbout || !commentsConfig
+            ? null
+            : {
+                appId: commentsConfig.appId,
+                pageId: post.translationKey,
+                pageUrl: canonicalUrl || post.url,
+                pageTitle: post.title,
+              },
       };
 
       const html = renderTemplate(postTemplate, {

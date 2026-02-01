@@ -36,7 +36,10 @@ Create `blog.config.json` at `$VAULT/.blog/`:
   "siteTitle": "My Blog",
   "siteUrl": "https://example.com",
   "allowRemoteImages": false,
-  "fontCssUrls": ["https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"]
+  "fontCssUrls": ["https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"],
+  "comments": {
+    "appId": "your-cusdis-app-id"
+  }
 }
 ```
 
@@ -44,6 +47,7 @@ Create `blog.config.json` at `$VAULT/.blog/`:
 - `siteUrl`: string, optional (used for canonical/sitemap)
 - `allowRemoteImages`: boolean, default `false` (when true, remote HTTP(S) images are downloaded into `assets/`)
 - `fontCssUrls`: string or string[], optional (external font stylesheet URLs). If omitted, no external font CSS is included.
+- `comments`: object, optional (enable Cusdis comments when configured; `appId` is required)
 
 ### Theme assets (optional)
 Place theme assets under `$VAULT/.blog/theme/`:

@@ -11,6 +11,8 @@ Turn an Obsidian vault into a deployable static blog for `user.github.io`, with 
   - `siteUrl` (string)
   - `allowRemoteImages` (boolean, default false; when true, remote images are downloaded into `assets/`)
   - `fontCssUrls` (string or array of strings, optional external font stylesheets)
+  - `comments` (object, optional; enables Cusdis comments when set)
+    - `appId` (string, required)
   - Theme assets can live under `$VAULT/.blog/theme/` (icons, fonts, optional `fonts.css`).
   - All other settings use defaults in code.
 
