@@ -17,13 +17,13 @@ export const initToc = () => {
     toc.classList.toggle('is-open', isOpen);
     toggle.setAttribute('aria-expanded', String(isOpen));
   };
-  const isMobile = window.matchMedia('(max-width: 900px)').matches;
+  const isMobile = window.matchMedia('(max-width: 1439px)').matches;
   setOpen(!isMobile);
   toggle.addEventListener('click', () => {
     setOpen(!toc.classList.contains('is-open'));
   });
   panel.addEventListener('click', (event) => {
-    if (!window.matchMedia('(max-width: 900px)').matches) {
+    if (!window.matchMedia('(max-width: 1439px)').matches) {
       return;
     }
     if (event.target instanceof HTMLAnchorElement) {
