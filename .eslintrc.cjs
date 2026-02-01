@@ -8,12 +8,33 @@ module.exports = {
     ecmaVersion: 2022,
     sourceType: 'module',
   },
+  rules: {
+    'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
+    'max-lines-per-function': ['error', { max: 70, skipBlankLines: true, skipComments: true }],
+    complexity: ['error', 10],
+    'max-depth': ['error', 4],
+    'max-statements': ['error', 40],
+  },
   extends: ['eslint:recommended'],
   overrides: [
     {
-      files: ['theme/app.js'],
+      files: ['theme/app.js', 'theme/app/**/*.js'],
       env: {
         browser: true,
+      },
+    },
+    {
+      files: [
+        'scripts/generate.js',
+        'scripts/content.js',
+        'scripts/markdown-renderer.js',
+        'theme/app/comments.js',
+        'theme/app/filters.js',
+      ],
+      rules: {
+        'max-lines': ['error', { max: 850, skipBlankLines: true, skipComments: true }],
+        'max-lines-per-function': ['error', { max: 180, skipBlankLines: true, skipComments: true }],
+        'max-statements': ['error', 180],
       },
     },
   ],

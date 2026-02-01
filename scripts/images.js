@@ -14,6 +14,8 @@ const QUALITY_STEP = 5;
 const DEFAULT_OUTPUT_BASE = path.resolve('dist/assets');
 const DEFAULT_PUBLIC_BASE = '/assets';
 const DEFAULT_REMOTE_DIR = 'remote';
+const DEFAULT_REMOTE_MAX_BYTES = 8 * 1024 * 1024;
+const DEFAULT_REMOTE_TIMEOUT_MS = 10000;
 
 const ensureDir = (dir) => fs.mkdir(dir, { recursive: true });
 
@@ -81,6 +83,8 @@ const resolveOptions = (options = {}) => ({
   jpegQuality: options.jpegQuality ?? DEFAULT_JPEG_QUALITY,
   webpQuality: options.webpQuality ?? DEFAULT_WEBP_QUALITY,
   remoteDir: options.remoteDir ?? DEFAULT_REMOTE_DIR,
+  remoteMaxBytes: options.remoteMaxBytes ?? DEFAULT_REMOTE_MAX_BYTES,
+  remoteTimeoutMs: options.remoteTimeoutMs ?? DEFAULT_REMOTE_TIMEOUT_MS,
 });
 
 const calculateTargetSize = (metadata, maxWidth) => {
@@ -273,14 +277,38 @@ const inferImageKindFromUrl = (src, contentType) => {
   }
 };
 
-const fetchRemoteImage = async (src) => {
-  const response = await fetch(src);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image (${response.status}): ${src}`);
+const fetchRemoteImage = async (src, options) => {
+  const controller = new AbortController();
+  const timeoutMs = options.remoteTimeoutMs;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(src, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image (${response.status}): ${src}`);
+    }
+    const contentType = response.headers.get('content-type');
+    const contentLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(contentLength) && contentLength > options.remoteMaxBytes) {
+      throw new Error(
+        `Remote image too large (${contentLength} bytes, max ${options.remoteMaxBytes}): ${src}`
+      );
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > options.remoteMaxBytes) {
+      throw new Error(
+        `Remote image too large (${buffer.length} bytes, max ${options.remoteMaxBytes}): ${src}`
+      );
+    }
+    return { buffer, contentType };
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      throw new Error(`Remote image fetch timed out after ${timeoutMs}ms: ${src}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  const contentType = response.headers.get('content-type');
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return { buffer, contentType };
 };
 
 export const processImageSource = async (src, options = {}) => {
@@ -300,7 +328,7 @@ export const processImageSource = async (src, options = {}) => {
     return processImageInput({ input: parsed.buffer, imageKind, relativePath }, resolvedOptions);
   }
 
-  const { buffer, contentType } = await fetchRemoteImage(src);
+  const { buffer, contentType } = await fetchRemoteImage(src, resolvedOptions);
   const imageKind = inferImageKindFromUrl(src, contentType);
   if (!imageKind) {
     throw new Error(`Unsupported remote image type: ${src}`);
