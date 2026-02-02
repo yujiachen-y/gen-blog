@@ -203,13 +203,24 @@ body[data-page='post'] .article-page {
   right: 0;
   width: 100%;
   z-index: 120;
-  background: var(--bg-color);
+  background: transparent;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 2rem 5%;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+.navbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  background: var(--bg-color);
+  z-index: -1;
 }
 
 .nav-left {
@@ -1495,7 +1506,7 @@ body.view-article .navbar .action-controls {
 
 .comment-section {
   border-top: 1px solid var(--card-border);
-  padding-top: 3rem;
+  padding: 3rem 0 2.5rem;
   margin-top: 3rem;
 }
 
@@ -1691,6 +1702,7 @@ body.view-article .navbar .action-controls {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .comment-hint {
