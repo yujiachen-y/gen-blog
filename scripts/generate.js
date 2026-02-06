@@ -20,6 +20,7 @@ import {
 import { buildFontLinks, buildIconLinks, readTemplate, renderTemplate } from './templates.js';
 import {
   buildArticleHtml,
+  buildAuthorHtml,
   buildHreflangLinks,
   buildListSectionsHtml,
   buildMetaForList,
@@ -72,6 +73,107 @@ const resolveConfigDir = async (rootDir) => {
     return rootDir;
   }
   return configDir;
+};
+
+const AUTHOR_SOCIAL_TYPES = new Set(['email', 'x', 'github', 'xiaohongshu', 'rss']);
+
+const normalizeAuthorSocial = (value) => {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error('author.config.json: social must be an array');
+  }
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(`author.config.json: social[${index}] must be an object`);
+    }
+    const rawType =
+      entry.type === undefined
+        ? ''
+        : String(entry.type || '')
+            .trim()
+            .toLowerCase();
+    if (!rawType) {
+      throw new Error(`author.config.json: social[${index}].type must be a non-empty string`);
+    }
+    if (!AUTHOR_SOCIAL_TYPES.has(rawType)) {
+      throw new Error(`author.config.json: social[${index}].type "${rawType}" is not supported`);
+    }
+    const rawValue = entry.value === undefined ? '' : String(entry.value || '').trim();
+    if (!rawValue) {
+      throw new Error(`author.config.json: social[${index}].value must be a non-empty string`);
+    }
+    const rawLabel = entry.label === undefined ? null : String(entry.label || '').trim();
+    if (entry.label !== undefined && !rawLabel) {
+      throw new Error(`author.config.json: social[${index}].label must be a non-empty string`);
+    }
+    return {
+      type: rawType,
+      value: rawValue,
+      label: rawLabel || null,
+    };
+  });
+};
+
+const readAuthorConfig = async (configDir) => {
+  const configPath = path.join(configDir, 'author.config.json');
+  try {
+    const raw = await fs.readFile(configPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('author.config.json must be a JSON object');
+    }
+    const avatar = parsed.avatar === undefined ? null : String(parsed.avatar || '').trim();
+    if (parsed.avatar !== undefined && !avatar) {
+      throw new Error('author.config.json: avatar must be a non-empty string');
+    }
+    const social = normalizeAuthorSocial(parsed.social);
+    if (!avatar && social.length === 0) {
+      return null;
+    }
+    return { avatar, social };
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+};
+
+const resolveConfigPath = (configDir, value) =>
+  path.isAbsolute(value) ? value : path.join(configDir, value);
+
+const processAvatarImage = async ({ avatarPath, buildDir }) => {
+  const exists = await pathExists(avatarPath);
+  if (!exists) {
+    return null;
+  }
+  const ext = path.extname(avatarPath).toLowerCase();
+  if (!IMAGE_EXTS.has(ext)) {
+    throw new Error(`author.config.json: avatar must be .jpg, .jpeg, or .png (got ${ext})`);
+  }
+  const fileName = `author-avatar${ext}`;
+  const targetPath = path.join(buildDir, 'assets', fileName);
+  await fs.copyFile(avatarPath, targetPath);
+  return `/assets/${fileName}`;
+};
+
+const resolveAuthorData = async ({ authorConfig, configDir, buildDir }) => {
+  if (!authorConfig) {
+    return null;
+  }
+  const avatarUrl = authorConfig.avatar
+    ? await processAvatarImage({
+        avatarPath: resolveConfigPath(configDir, authorConfig.avatar),
+        buildDir,
+      })
+    : null;
+  const social = authorConfig.social || [];
+  if (!avatarUrl && social.length === 0) {
+    return null;
+  }
+  return { avatarUrl, social };
 };
 
 const normalizeStringList = (value, fieldName) => {
@@ -298,6 +400,7 @@ const run = async () => {
   const configDir = await resolveConfigDir(inputDir);
   const defaultConfigDir = path.join(inputDir, '.blog');
   const siteConfig = await readSiteConfig(configDir);
+  const authorConfig = await readAuthorConfig(defaultConfigDir);
   const siteUrl = getArgValue('--site-url', siteConfig.siteUrl || null);
   const siteTitle = siteConfig.siteTitle || 'Gen Blog';
   const themeAssets = await resolveThemeAssets(defaultConfigDir);
@@ -319,6 +422,12 @@ const run = async () => {
   await ensureDir(buildDir);
   await ensureDir(path.join(buildDir, 'posts'));
   await ensureDir(path.join(buildDir, 'assets'));
+  const authorData = await resolveAuthorData({
+    authorConfig,
+    configDir: defaultConfigDir,
+    buildDir,
+  });
+  const authorHtml = buildAuthorHtml(authorData);
 
   const [listTemplate, postTemplate] = await Promise.all([
     readTemplate(themeDir, 'index.html'),
@@ -421,8 +530,9 @@ const run = async () => {
         imageExts: IMAGE_EXTS,
         pathExists,
       });
-      const tocHtml = buildTocHtml(toc, post.lang);
-      const tocLayoutClass = tocHtml ? 'has-toc' : 'no-toc';
+      const isAbout = post.translationKey === 'about';
+      const tocHtml = isAbout ? '' : buildTocHtml(toc, post.lang);
+      const tocLayoutClass = isAbout ? 'no-toc' : tocHtml ? 'has-toc' : 'no-toc';
 
       return {
         ...post,
@@ -547,7 +657,7 @@ const run = async () => {
             buildUrl,
           })
         : '';
-      const articleHtml = buildArticleHtml(post);
+      const articleHtml = buildArticleHtml(post, { isAbout, authorHtml });
       const commentsConfig = siteConfig.comments;
       const pageData = {
         pageType: post.translationKey === 'about' ? 'about' : 'post',
