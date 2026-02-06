@@ -26,8 +26,8 @@ module.exports = {
     {
       files: [
         'scripts/generate.js',
-        'scripts/content.js',
-        'scripts/markdown-renderer.js',
+        'scripts/content/content.js',
+        'scripts/content/markdown-renderer.js',
         'theme/app/comments.js',
         'theme/app/filters.js',
       ],

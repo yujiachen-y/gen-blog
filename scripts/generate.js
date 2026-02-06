@@ -2,15 +2,15 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { processImage, processImageSource } from './images.js';
-import { buildRssFeed } from './rss.js';
-import { copyThemeAssets } from './assets.js';
-import { buildPostGroups, loadPosts } from './content.js';
-import { buildImageIndex } from './image-index.js';
-import { isExternalAsset, isRemoteAsset, resolveLocalAsset } from './asset-resolver.js';
-import { renderMarkdownWithImages } from './markdown-renderer.js';
-import { ensureDir, pathExists, shouldPreserveOutput, writeJson } from './fs-utils.js';
-import { buildFontLinks, buildIconLinks, readTemplate } from './templates.js';
-import { buildAuthorHtml, buildTocHtml } from './pages.js';
+import { buildRssFeed } from './content/rss.js';
+import { copyThemeAssets } from './media/assets.js';
+import { buildPostGroups, loadPosts } from './content/content.js';
+import { buildImageIndex } from './media/image-index.js';
+import { isExternalAsset, isRemoteAsset, resolveLocalAsset } from './media/asset-resolver.js';
+import { renderMarkdownWithImages } from './content/markdown-renderer.js';
+import { ensureDir, pathExists, shouldPreserveOutput, writeJson } from './shared/fs-utils.js';
+import { buildFontLinks, buildIconLinks, readTemplate } from './shared/templates.js';
+import { buildAuthorHtml, buildTocHtml } from './content/pages.js';
 import {
   buildHomeUrl,
   buildListUrl,
@@ -18,14 +18,14 @@ import {
   buildPostImagePath,
   buildPostUrl,
   buildUrl,
-} from './paths.js';
+} from './shared/paths.js';
 import { THEME_CONSTANTS } from '../theme.constants.js';
-import { writeAboutAliases, writePostPages, writeRssFiles } from './generate-output.js';
+import { writeAboutAliases, writePostPages, writeRssFiles } from './generator/generate-output.js';
 import {
   finalizeOutputDirectory,
   writeListPages,
   writeSitemapAndRobots,
-} from './generate-list-output.js';
+} from './generator/generate-list-output.js';
 
 const args = process.argv.slice(2);
 

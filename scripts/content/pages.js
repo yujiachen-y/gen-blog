@@ -1,4 +1,4 @@
-import { escapeHtml } from './templates.js';
+import { escapeHtml } from '../shared/templates.js';
 
 export const buildPictureHtml = (picture, options = {}) => {
   if (!picture) {

@@ -1,16 +1,16 @@
 import path from 'node:path';
 import { createMarkdownRenderer } from './markdown.js';
-import { preprocessObsidianContent } from './obsidian.js';
+import { preprocessObsidianContent } from '../obsidian.js';
 import { buildPictureHtml } from './pages.js';
-import { escapeHtml } from './templates.js';
-import { slugifyHeading } from './paths.js';
+import { escapeHtml } from '../shared/templates.js';
+import { slugifyHeading } from '../shared/paths.js';
 import {
   decodeUriSafe,
   isExternalAsset,
   isRemoteAsset,
   resolveLocalAsset,
-} from './asset-resolver.js';
-import { resolveImageFromIndex } from './image-index.js';
+} from '../media/asset-resolver.js';
+import { resolveImageFromIndex } from '../media/image-index.js';
 
 const applyCalloutTokens = (tokens) => {
   const calloutPattern = /^\[!(\w+)\]\s*/;
@@ -66,6 +66,54 @@ const applyCalloutTokens = (tokens) => {
   });
 };
 
+const getHeadingLevel = (token) => {
+  if (token.type !== 'heading_open') {
+    return null;
+  }
+  const level = Number(token.tag.replace('h', ''));
+  return Number.isFinite(level) && level >= 1 && level <= 4 ? level : null;
+};
+
+const getHeadingInlineToken = (tokens, index) => {
+  const inline = tokens[index + 1];
+  if (!inline || inline.type !== 'inline') {
+    return null;
+  }
+  return inline;
+};
+
+const getHeadingText = (inlineToken) => {
+  const rawText = (inlineToken.children || [])
+    .map((child) => (child.type === 'text' || child.type === 'code_inline' ? child.content : ''))
+    .join('')
+    .trim();
+  const text = rawText.replace(/%+/g, '').trim();
+  return text || null;
+};
+
+const getHeadingId = ({ text, toc, headingCounts }) => {
+  const baseId = slugifyHeading(text) || `section-${toc.length + 1}`;
+  const nextCount = (headingCounts.get(baseId) || 0) + 1;
+  headingCounts.set(baseId, nextCount);
+  return nextCount === 1 ? baseId : `${baseId}-${nextCount}`;
+};
+
+const appendTocHeading = ({ tokens, index, toc, headingCounts }) => {
+  const token = tokens[index];
+  const level = getHeadingLevel(token);
+  const inlineToken = getHeadingInlineToken(tokens, index);
+  if (!level || !inlineToken) {
+    return;
+  }
+  const text = getHeadingText(inlineToken);
+  if (!text) {
+    return;
+  }
+  const id = getHeadingId({ text, toc, headingCounts });
+  token.attrSet('id', id);
+  toc.push({ level, id, text });
+};
+
 export const renderMarkdownWithImages = async ({
   content,
   filePath,
@@ -97,33 +145,7 @@ export const renderMarkdownWithImages = async ({
 
   const toc = [];
   const headingCounts = new Map();
-  tokens.forEach((token, idx) => {
-    if (token.type !== 'heading_open') {
-      return;
-    }
-    const level = Number(token.tag.replace('h', ''));
-    if (!Number.isFinite(level) || level < 1 || level > 4) {
-      return;
-    }
-    const inline = tokens[idx + 1];
-    if (!inline || inline.type !== 'inline') {
-      return;
-    }
-    const rawText = (inline.children || [])
-      .map((child) => (child.type === 'text' || child.type === 'code_inline' ? child.content : ''))
-      .join('')
-      .trim();
-    const text = rawText.replace(/%+/g, '').trim();
-    if (!text) {
-      return;
-    }
-    const baseId = slugifyHeading(text) || `section-${toc.length + 1}`;
-    const nextCount = (headingCounts.get(baseId) || 0) + 1;
-    headingCounts.set(baseId, nextCount);
-    const id = nextCount === 1 ? baseId : `${baseId}-${nextCount}`;
-    token.attrSet('id', id);
-    toc.push({ level, id, text });
-  });
+  tokens.forEach((_, idx) => appendTocHeading({ tokens, index: idx, toc, headingCounts }));
 
   const collectImageTokens = (tokenList) =>
     tokenList.flatMap((token) => {

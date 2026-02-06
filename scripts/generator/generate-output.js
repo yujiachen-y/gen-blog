@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { buildRssLinks } from './rss.js';
-import { writeFile, writePage } from './fs-utils.js';
-import { buildHreflangLinks, buildArticleHtml, buildMetaForPost } from './pages.js';
+import { buildRssLinks } from '../content/rss.js';
+import { writeFile, writePage } from '../shared/fs-utils.js';
+import { buildHreflangLinks, buildArticleHtml, buildMetaForPost } from '../content/pages.js';
 import {
   buildAboutUrl,
   buildHomeUrl,
@@ -9,8 +9,8 @@ import {
   buildPostUrl,
   buildUrl,
   stripLeadingSlash,
-} from './paths.js';
-import { renderTemplate } from './templates.js';
+} from '../shared/paths.js';
+import { renderTemplate } from '../shared/templates.js';
 
 const buildPostHreflangLinks = ({ post, isAbout, siteUrl }) =>
   buildHreflangLinks(

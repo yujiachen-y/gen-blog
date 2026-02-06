@@ -1,10 +1,16 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { buildRssLinks } from './rss.js';
-import { ensureDir, syncDirectory, writeFile, writePage } from './fs-utils.js';
-import { buildListSectionsHtml, buildMetaForList, buildHreflangLinks } from './pages.js';
-import { buildAboutUrl, buildHomeUrl, buildListUrl, buildUrl, stripLeadingSlash } from './paths.js';
-import { renderTemplate } from './templates.js';
+import { buildRssLinks } from '../content/rss.js';
+import { ensureDir, syncDirectory, writeFile, writePage } from '../shared/fs-utils.js';
+import { buildListSectionsHtml, buildMetaForList, buildHreflangLinks } from '../content/pages.js';
+import {
+  buildAboutUrl,
+  buildHomeUrl,
+  buildListUrl,
+  buildUrl,
+  stripLeadingSlash,
+} from '../shared/paths.js';
+import { renderTemplate } from '../shared/templates.js';
 
 const collectListCategories = (items) => {
   const categorySet = new Set();
