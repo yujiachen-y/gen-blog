@@ -2,42 +2,30 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { processImage, processImageSource } from './images.js';
-import { buildRssFeed, buildRssLinks } from './rss.js';
+import { buildRssFeed } from './rss.js';
 import { copyThemeAssets } from './assets.js';
 import { buildPostGroups, loadPosts } from './content.js';
 import { buildImageIndex } from './image-index.js';
 import { isExternalAsset, isRemoteAsset, resolveLocalAsset } from './asset-resolver.js';
 import { renderMarkdownWithImages } from './markdown-renderer.js';
+import { ensureDir, pathExists, shouldPreserveOutput, writeJson } from './fs-utils.js';
+import { buildFontLinks, buildIconLinks, readTemplate } from './templates.js';
+import { buildAuthorHtml, buildTocHtml } from './pages.js';
 import {
-  ensureDir,
-  pathExists,
-  shouldPreserveOutput,
-  syncDirectory,
-  writeFile,
-  writeJson,
-  writePage,
-} from './fs-utils.js';
-import { buildFontLinks, buildIconLinks, readTemplate, renderTemplate } from './templates.js';
-import {
-  buildArticleHtml,
-  buildAuthorHtml,
-  buildHreflangLinks,
-  buildListSectionsHtml,
-  buildMetaForList,
-  buildMetaForPost,
-  buildTocHtml,
-} from './pages.js';
-import {
-  buildAboutUrl,
   buildHomeUrl,
   buildListUrl,
   buildPostCoverPath,
   buildPostImagePath,
   buildPostUrl,
   buildUrl,
-  stripLeadingSlash,
 } from './paths.js';
 import { THEME_CONSTANTS } from '../theme.constants.js';
+import { writeAboutAliases, writePostPages, writeRssFiles } from './generate-output.js';
+import {
+  finalizeOutputDirectory,
+  writeListPages,
+  writeSitemapAndRobots,
+} from './generate-list-output.js';
 
 const args = process.argv.slice(2);
 
@@ -77,6 +65,59 @@ const resolveConfigDir = async (rootDir) => {
 
 const AUTHOR_SOCIAL_TYPES = new Set(['email', 'x', 'github', 'xiaohongshu', 'rss']);
 
+const ensureObject = (value, errorMessage) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(errorMessage);
+  }
+  return value;
+};
+
+const readTrimmedString = ({ value, fallback = '', allowNull = false }) => {
+  if (value === undefined) {
+    return allowNull ? null : fallback;
+  }
+  const trimmed = String(value || '').trim();
+  if (!trimmed && !allowNull) {
+    return fallback;
+  }
+  return trimmed || null;
+};
+
+const normalizeAuthorSocialEntry = (entry, index) => {
+  ensureObject(entry, `author.config.json: social[${index}] must be an object`);
+  const rawType = readTrimmedString({
+    value: entry.type,
+    fallback: '',
+  })
+    .toLowerCase()
+    .trim();
+  if (!rawType) {
+    throw new Error(`author.config.json: social[${index}].type must be a non-empty string`);
+  }
+  if (!AUTHOR_SOCIAL_TYPES.has(rawType)) {
+    throw new Error(`author.config.json: social[${index}].type "${rawType}" is not supported`);
+  }
+  const rawValue = readTrimmedString({
+    value: entry.value,
+    fallback: '',
+  });
+  if (!rawValue) {
+    throw new Error(`author.config.json: social[${index}].value must be a non-empty string`);
+  }
+  const rawLabel = readTrimmedString({
+    value: entry.label,
+    allowNull: true,
+  });
+  if (entry.label !== undefined && !rawLabel) {
+    throw new Error(`author.config.json: social[${index}].label must be a non-empty string`);
+  }
+  return {
+    type: rawType,
+    value: rawValue,
+    label: rawLabel || null,
+  };
+};
+
 const normalizeAuthorSocial = (value) => {
   if (value === undefined || value === null) {
     return [];
@@ -84,55 +125,30 @@ const normalizeAuthorSocial = (value) => {
   if (!Array.isArray(value)) {
     throw new Error('author.config.json: social must be an array');
   }
-  return value.map((entry, index) => {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      throw new Error(`author.config.json: social[${index}] must be an object`);
-    }
-    const rawType =
-      entry.type === undefined
-        ? ''
-        : String(entry.type || '')
-            .trim()
-            .toLowerCase();
-    if (!rawType) {
-      throw new Error(`author.config.json: social[${index}].type must be a non-empty string`);
-    }
-    if (!AUTHOR_SOCIAL_TYPES.has(rawType)) {
-      throw new Error(`author.config.json: social[${index}].type "${rawType}" is not supported`);
-    }
-    const rawValue = entry.value === undefined ? '' : String(entry.value || '').trim();
-    if (!rawValue) {
-      throw new Error(`author.config.json: social[${index}].value must be a non-empty string`);
-    }
-    const rawLabel = entry.label === undefined ? null : String(entry.label || '').trim();
-    if (entry.label !== undefined && !rawLabel) {
-      throw new Error(`author.config.json: social[${index}].label must be a non-empty string`);
-    }
-    return {
-      type: rawType,
-      value: rawValue,
-      label: rawLabel || null,
-    };
+  return value.map(normalizeAuthorSocialEntry);
+};
+
+const parseAuthorConfig = (parsed) => {
+  ensureObject(parsed, 'author.config.json must be a JSON object');
+  const avatar = readTrimmedString({
+    value: parsed.avatar,
+    allowNull: true,
   });
+  if (parsed.avatar !== undefined && !avatar) {
+    throw new Error('author.config.json: avatar must be a non-empty string');
+  }
+  const social = normalizeAuthorSocial(parsed.social);
+  if (!avatar && social.length === 0) {
+    return null;
+  }
+  return { avatar, social };
 };
 
 const readAuthorConfig = async (configDir) => {
   const configPath = path.join(configDir, 'author.config.json');
   try {
     const raw = await fs.readFile(configPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('author.config.json must be a JSON object');
-    }
-    const avatar = parsed.avatar === undefined ? null : String(parsed.avatar || '').trim();
-    if (parsed.avatar !== undefined && !avatar) {
-      throw new Error('author.config.json: avatar must be a non-empty string');
-    }
-    const social = normalizeAuthorSocial(parsed.social);
-    if (!avatar && social.length === 0) {
-      return null;
-    }
-    return { avatar, social };
+    return parseAuthorConfig(JSON.parse(raw));
   } catch (error) {
     if (error.code === 'ENOENT') {
       return null;
@@ -201,9 +217,7 @@ const parseCommentsConfig = (value) => {
   if (value === undefined || value === null) {
     return null;
   }
-  if (typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('blog.config.json: comments must be an object');
-  }
+  ensureObject(value, 'blog.config.json: comments must be an object');
   const appId = value.appId === undefined ? '' : String(value.appId || '').trim();
   if (!appId) {
     throw new Error('blog.config.json: comments.appId must be a non-empty string');
@@ -211,33 +225,46 @@ const parseCommentsConfig = (value) => {
   return { appId };
 };
 
+const parseOptionalConfigString = (parsed, key) => {
+  if (parsed[key] === undefined) {
+    return null;
+  }
+  const value = String(parsed[key] || '').trim();
+  if (!value) {
+    throw new Error(`blog.config.json: ${key} must be a non-empty string`);
+  }
+  return value;
+};
+
+const parseAllowRemoteImages = (parsed) => {
+  if (parsed.allowRemoteImages === undefined) {
+    return false;
+  }
+  if (typeof parsed.allowRemoteImages !== 'boolean') {
+    throw new Error('blog.config.json: allowRemoteImages must be a boolean');
+  }
+  return parsed.allowRemoteImages;
+};
+
+const parseSiteConfig = (parsed) => {
+  ensureObject(parsed, 'blog.config.json must be a JSON object');
+  return {
+    siteTitle: parseOptionalConfigString(parsed, 'siteTitle'),
+    siteUrl: parseOptionalConfigString(parsed, 'siteUrl'),
+    allowRemoteImages: parseAllowRemoteImages(parsed),
+    fontCssUrls:
+      parsed.fontCssUrls === undefined
+        ? null
+        : normalizeStringList(parsed.fontCssUrls, 'blog.config.json: fontCssUrls'),
+    comments: parseCommentsConfig(parsed.comments),
+  };
+};
+
 const readSiteConfig = async (configDir) => {
   const configPath = path.join(configDir, 'blog.config.json');
   try {
     const raw = await fs.readFile(configPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('blog.config.json must be a JSON object');
-    }
-    const siteTitle = parsed.siteTitle === undefined ? null : String(parsed.siteTitle || '').trim();
-    if (parsed.siteTitle !== undefined && !siteTitle) {
-      throw new Error('blog.config.json: siteTitle must be a non-empty string');
-    }
-    const siteUrl = parsed.siteUrl === undefined ? null : String(parsed.siteUrl || '').trim();
-    if (parsed.siteUrl !== undefined && !siteUrl) {
-      throw new Error('blog.config.json: siteUrl must be a non-empty string');
-    }
-    const allowRemoteImages =
-      parsed.allowRemoteImages === undefined ? false : parsed.allowRemoteImages;
-    if (parsed.allowRemoteImages !== undefined && typeof allowRemoteImages !== 'boolean') {
-      throw new Error('blog.config.json: allowRemoteImages must be a boolean');
-    }
-    const fontCssUrls =
-      parsed.fontCssUrls === undefined
-        ? null
-        : normalizeStringList(parsed.fontCssUrls, 'blog.config.json: fontCssUrls');
-    const comments = parseCommentsConfig(parsed.comments);
-    return { siteTitle, siteUrl, allowRemoteImages, fontCssUrls, comments };
+    return parseSiteConfig(JSON.parse(raw));
   } catch (error) {
     if (error.code === 'ENOENT') {
       return {
@@ -251,8 +278,6 @@ const readSiteConfig = async (configDir) => {
     throw error;
   }
 };
-
-const stringifyPageData = (value) => JSON.stringify(value, null, 2).replace(/</g, '\\u003c');
 
 const createConcurrencyLimiter = (maxConcurrent) => {
   let activeCount = 0;
@@ -392,11 +417,21 @@ const absolutizeHtml = (value, baseUrl) => {
   });
 };
 
-const run = async () => {
-  if (outputDir === inputDir) {
-    throw new Error('Output directory must be different from input directory.');
+const createBuildDirectory = async () => {
+  const preserveOutput = await shouldPreserveOutput(outputDir);
+  const buildDir = preserveOutput
+    ? await fs.mkdtemp(path.join(os.tmpdir(), 'gen-blog-'))
+    : outputDir;
+  if (!preserveOutput) {
+    await fs.rm(outputDir, { recursive: true, force: true });
   }
+  await ensureDir(buildDir);
+  await ensureDir(path.join(buildDir, 'posts'));
+  await ensureDir(path.join(buildDir, 'assets'));
+  return { preserveOutput, buildDir };
+};
 
+const resolveGenerationConfig = async () => {
   const configDir = await resolveConfigDir(inputDir);
   const defaultConfigDir = path.join(inputDir, '.blog');
   const siteConfig = await readSiteConfig(configDir);
@@ -404,53 +439,36 @@ const run = async () => {
   const siteUrl = getArgValue('--site-url', siteConfig.siteUrl || null);
   const siteTitle = siteConfig.siteTitle || 'Gen Blog';
   const themeAssets = await resolveThemeAssets(defaultConfigDir);
-  const fontLinks = buildFontLinks(siteConfig.fontCssUrls);
-  const themeLinks = themeAssets.fontsCssPath
-    ? `<link rel="stylesheet" href="/${THEME_CONSTANTS.assets.fontsCss}" />`
-    : '';
-  const iconLinks = themeAssets.icons.length > 0 ? buildIconLinks(themeAssets.icons) : '';
-  const labels = THEME_CONSTANTS.labels;
-  const allowRemoteImages = siteConfig.allowRemoteImages;
-  const preserveOutput = await shouldPreserveOutput(outputDir);
-  const buildDir = preserveOutput
-    ? await fs.mkdtemp(path.join(os.tmpdir(), 'gen-blog-'))
-    : outputDir;
-
-  if (!preserveOutput) {
-    await fs.rm(outputDir, { recursive: true, force: true });
-  }
-  await ensureDir(buildDir);
-  await ensureDir(path.join(buildDir, 'posts'));
-  await ensureDir(path.join(buildDir, 'assets'));
-  const authorData = await resolveAuthorData({
+  return {
+    configDir,
+    defaultConfigDir,
+    siteConfig,
     authorConfig,
-    configDir: defaultConfigDir,
-    buildDir,
-  });
-  const authorHtml = buildAuthorHtml(authorData);
+    siteUrl,
+    siteTitle,
+    themeAssets,
+    fontLinks: buildFontLinks(siteConfig.fontCssUrls),
+    themeLinks: themeAssets.fontsCssPath
+      ? `<link rel="stylesheet" href="/${THEME_CONSTANTS.assets.fontsCss}" />`
+      : '',
+    iconLinks: themeAssets.icons.length > 0 ? buildIconLinks(themeAssets.icons) : '',
+    labels: THEME_CONSTANTS.labels,
+    allowRemoteImages: siteConfig.allowRemoteImages,
+  };
+};
 
-  const [listTemplate, postTemplate] = await Promise.all([
-    readTemplate(themeDir, 'index.html'),
-    readTemplate(themeDir, 'post.html'),
-  ]);
-  const posts = await loadPosts(inputDir);
+const resolveLanguageContext = (posts) => {
   const groups = buildPostGroups(posts);
   const aboutGroup = groups.find((group) => group.translationKey === 'about') || null;
-
   const nonAboutPosts = posts.filter((post) => post.translationKey !== 'about');
   const languages = Array.from(
     new Set(nonAboutPosts.map((post) => post.lang).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
   const defaultLang = languages.includes('en') ? 'en' : languages[0] || 'en';
+  return { groups, aboutGroup, languages, defaultLang };
+};
 
-  const fontText = collectFontText(posts, siteTitle);
-  await copyThemeAssets({
-    targetDir: buildDir,
-    themeDir,
-    fontText,
-    themeAssets,
-  });
-
+const createImagePipeline = async (buildDir) => {
   const imageCache = new Map();
   const imageIndex = await buildImageIndex(inputDir, IMAGE_EXTS);
   const imageOptions = {
@@ -467,85 +485,130 @@ const run = async () => {
   const processImageTask = (input, options) => imageLimiter(() => processImage(input, options));
   const processImageSourceTask = (src, options) =>
     imageLimiter(() => processImageSource(src, options));
+  return {
+    imageCache,
+    imageIndex,
+    imageOptions,
+    processImageTask,
+    processImageSourceTask,
+  };
+};
 
-  const processedPosts = await Promise.all(
-    posts.map(async (post) => {
-      let coverPicture = null;
-      if (post.coverImage) {
-        const coverRelativePath = buildPostCoverPath(post);
-        if (isExternalAsset(post.coverImage)) {
-          if (isRemoteAsset(post.coverImage) && !allowRemoteImages) {
-            throw new Error(
-              `${post.sourcePath}: remote cover images are disabled (${post.coverImage})`
-            );
-          }
-          const cacheKey = `external:${coverRelativePath}:${post.coverImage}`;
-          if (!imageCache.has(cacheKey)) {
-            imageCache.set(
-              cacheKey,
-              processImageSourceTask(post.coverImage, {
-                ...imageOptions,
-                relativePath: coverRelativePath,
-              })
-            );
-          }
-          const processed = await imageCache.get(cacheKey);
-          coverPicture = processed.picture;
-        } else {
-          const resolved = resolveLocalAsset({
-            src: post.coverImage,
-            filePath: post.sourcePath,
-            inputDir,
-          });
-          if (!resolved) {
-            throw new Error(`${post.sourcePath}: cover image must live under vault`);
-          }
-          const ext = path.extname(resolved).toLowerCase();
-          if (!IMAGE_EXTS.has(ext)) {
-            throw new Error(`${post.sourcePath}: unsupported cover image format ${ext}`);
-          }
-          const cacheKey = `${resolved}:${coverRelativePath}`;
-          if (!imageCache.has(cacheKey)) {
-            imageCache.set(
-              cacheKey,
-              processImageTask(resolved, { ...imageOptions, relativePath: coverRelativePath })
-            );
-          }
-          const processed = await imageCache.get(cacheKey);
-          coverPicture = processed.picture;
-        }
-      }
+const getCachedResult = async (cache, key, factory) => {
+  if (!cache.has(key)) {
+    cache.set(key, factory());
+  }
+  return cache.get(key);
+};
 
-      const { html: contentHtml, toc } = await renderMarkdownWithImages({
-        content: post.content,
-        filePath: post.sourcePath,
-        imageCache,
-        imageOptions,
-        imageIndex,
-        buildImagePath: (index) => buildPostImagePath(post, index),
-        allowRemoteImages,
-        processImageTask,
-        processImageSourceTask,
-        inputDir,
-        imageExts: IMAGE_EXTS,
-        pathExists,
-      });
-      const isAbout = post.translationKey === 'about';
-      const tocHtml = isAbout ? '' : buildTocHtml(toc, post.lang);
-      const tocLayoutClass = isAbout ? 'no-toc' : tocHtml ? 'has-toc' : 'no-toc';
-
-      return {
-        ...post,
-        coverPicture,
-        contentHtml,
-        tocHtml,
-        tocLayoutClass,
-      };
+const processExternalCoverPicture = async ({
+  post,
+  coverRelativePath,
+  allowRemoteImages,
+  imageCache,
+  imageOptions,
+  processImageSourceTask,
+}) => {
+  if (isRemoteAsset(post.coverImage) && !allowRemoteImages) {
+    throw new Error(`${post.sourcePath}: remote cover images are disabled (${post.coverImage})`);
+  }
+  const cacheKey = `external:${coverRelativePath}:${post.coverImage}`;
+  const processed = await getCachedResult(imageCache, cacheKey, () =>
+    processImageSourceTask(post.coverImage, {
+      ...imageOptions,
+      relativePath: coverRelativePath,
     })
   );
+  return processed.picture;
+};
 
+const processLocalCoverPicture = async ({
+  post,
+  coverRelativePath,
+  imageCache,
+  imageOptions,
+  processImageTask,
+}) => {
+  const resolved = resolveLocalAsset({
+    src: post.coverImage,
+    filePath: post.sourcePath,
+    inputDir,
+  });
+  if (!resolved) {
+    throw new Error(`${post.sourcePath}: cover image must live under vault`);
+  }
+  const ext = path.extname(resolved).toLowerCase();
+  if (!IMAGE_EXTS.has(ext)) {
+    throw new Error(`${post.sourcePath}: unsupported cover image format ${ext}`);
+  }
+  const cacheKey = `${resolved}:${coverRelativePath}`;
+  const processed = await getCachedResult(imageCache, cacheKey, () =>
+    processImageTask(resolved, { ...imageOptions, relativePath: coverRelativePath })
+  );
+  return processed.picture;
+};
+
+const processCoverPicture = async ({ post, allowRemoteImages, imagePipeline }) => {
+  if (!post.coverImage) {
+    return null;
+  }
+  const coverRelativePath = buildPostCoverPath(post);
+  if (isExternalAsset(post.coverImage)) {
+    return processExternalCoverPicture({
+      post,
+      coverRelativePath,
+      allowRemoteImages,
+      imageCache: imagePipeline.imageCache,
+      imageOptions: imagePipeline.imageOptions,
+      processImageSourceTask: imagePipeline.processImageSourceTask,
+    });
+  }
+  return processLocalCoverPicture({
+    post,
+    coverRelativePath,
+    imageCache: imagePipeline.imageCache,
+    imageOptions: imagePipeline.imageOptions,
+    processImageTask: imagePipeline.processImageTask,
+  });
+};
+
+const processSinglePost = async ({ post, allowRemoteImages, imagePipeline }) => {
+  const coverPicture = await processCoverPicture({
+    post,
+    allowRemoteImages,
+    imagePipeline,
+  });
+  const { html: contentHtml, toc } = await renderMarkdownWithImages({
+    content: post.content,
+    filePath: post.sourcePath,
+    imageCache: imagePipeline.imageCache,
+    imageOptions: imagePipeline.imageOptions,
+    imageIndex: imagePipeline.imageIndex,
+    buildImagePath: (index) => buildPostImagePath(post, index),
+    allowRemoteImages,
+    processImageTask: imagePipeline.processImageTask,
+    processImageSourceTask: imagePipeline.processImageSourceTask,
+    inputDir,
+    imageExts: IMAGE_EXTS,
+    pathExists,
+  });
+  const isAbout = post.translationKey === 'about';
+  const tocHtml = isAbout ? '' : buildTocHtml(toc, post.lang);
+  return {
+    ...post,
+    coverPicture,
+    contentHtml,
+    tocHtml,
+    tocLayoutClass: isAbout ? 'no-toc' : tocHtml ? 'has-toc' : 'no-toc',
+  };
+};
+
+const processPostsWithAssets = ({ posts, allowRemoteImages, imagePipeline }) =>
+  Promise.all(posts.map((post) => processSinglePost({ post, allowRemoteImages, imagePipeline })));
+
+const buildPostPages = ({ processedPosts, groups }) => {
   const groupMap = new Map(groups.map((group) => [group.translationKey, group]));
-  const postPages = processedPosts.map((post) => {
+  return processedPosts.map((post) => {
     const group = groupMap.get(post.translationKey);
     const isAbout = post.translationKey === 'about';
     const resolvePostUrl = (lang) =>
@@ -553,10 +616,9 @@ const run = async () => {
         ? buildHomeUrl(lang, group.defaultLang)
         : buildPostUrl(post.translationKey, lang, group.defaultLang);
     const pageUrl = resolvePostUrl(post.lang);
-    const langSwitchUrl = group.languages
-      .filter((lang) => lang !== post.lang)
-      .map((lang) => resolvePostUrl(lang))[0];
-
+    const langSwitchUrl = group.languages.find((lang) => lang !== post.lang)
+      ? resolvePostUrl(group.languages.find((lang) => lang !== post.lang))
+      : null;
     return {
       ...post,
       url: pageUrl,
@@ -565,48 +627,55 @@ const run = async () => {
       languages: group.languages,
     };
   });
+};
 
-  const listDataByLang = languages.map((lang) => {
-    const items = postPages
+const sortPostsByDate = (a, b) => {
+  const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+  if (dateDiff !== 0) {
+    return dateDiff;
+  }
+  return a.translationKey.localeCompare(b.translationKey);
+};
+
+const buildListDataByLang = ({ languages, postPages }) =>
+  languages.map((lang) => ({
+    lang,
+    items: postPages
       .filter((post) => post.lang === lang && post.translationKey !== 'about')
-      .sort((a, b) => {
-        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-        if (dateDiff !== 0) {
-          return dateDiff;
-        }
-        return a.translationKey.localeCompare(b.translationKey);
-      });
-    return { lang, items };
-  });
+      .sort(sortPostsByDate),
+  }));
 
-  const rssFeeds = siteUrl
-    ? listDataByLang.map((group) => {
-        const feedPath = `/rss-${group.lang}.xml`;
-        const feedUrl = buildUrl(siteUrl, feedPath);
-        return {
-          lang: group.lang,
-          path: feedPath,
-          xml: buildRssFeed({
-            siteTitle,
-            siteUrl,
-            lang: group.lang,
-            defaultLang,
-            items: group.items,
-            feedUrl,
-            buildUrl,
-            buildListUrl,
-            absolutizeHtml,
-          }),
-        };
-      })
-    : [];
+const buildRssOutputs = ({ siteUrl, listDataByLang, siteTitle, defaultLang }) => {
+  if (!siteUrl) {
+    return { rssOutputs: [], rssEnabled: false };
+  }
+  const rssFeeds = listDataByLang.map((group) => {
+    const feedPath = `/rss-${group.lang}.xml`;
+    return {
+      lang: group.lang,
+      path: feedPath,
+      xml: buildRssFeed({
+        siteTitle,
+        siteUrl,
+        lang: group.lang,
+        defaultLang,
+        items: group.items,
+        feedUrl: buildUrl(siteUrl, feedPath),
+        buildUrl,
+        buildListUrl,
+        absolutizeHtml,
+      }),
+    };
+  });
   const defaultRss = rssFeeds.find((feed) => feed.lang === defaultLang) || null;
   const rssOutputs = defaultRss
     ? [...rssFeeds, { lang: defaultLang, path: '/rss.xml', xml: defaultRss.xml }]
     : rssFeeds;
-  const rssEnabled = siteUrl && rssOutputs.length > 0;
+  return { rssOutputs, rssEnabled: rssOutputs.length > 0 };
+};
 
-  const filterIndex = listDataByLang.flatMap((group) =>
+const buildFilterIndex = (listDataByLang) =>
+  listDataByLang.flatMap((group) =>
     group.items.map((post) => ({
       translationKey: post.translationKey,
       lang: post.lang,
@@ -623,216 +692,104 @@ const run = async () => {
     }))
   );
 
-  await writeJson(path.join(buildDir, 'posts', 'filter-index.json'), filterIndex);
-
-  const aboutHtmlByLang = new Map();
-
-  await Promise.all(
-    postPages.map(async (post) => {
-      const canonicalUrl = buildUrl(siteUrl, post.url);
-      const isAbout = post.translationKey === 'about';
-      const hreflangLinks = buildHreflangLinks(
-        post.languages.reduce((acc, lang) => {
-          const url = isAbout
-            ? buildHomeUrl(lang, post.defaultLang)
-            : buildPostUrl(post.translationKey, lang, post.defaultLang);
-          acc[lang] = buildUrl(siteUrl, url);
-          return acc;
-        }, {})
-      );
-
-      const metaTags = buildMetaForPost({
-        post,
-        siteTitle,
-        canonicalUrl,
-        hreflangLinks,
-        baseUrl: siteUrl,
-        buildUrl,
-      });
-      const rssLinks = rssEnabled
-        ? buildRssLinks({
-            lang: post.lang,
-            defaultLang,
-            siteUrl,
-            buildUrl,
-          })
-        : '';
-      const articleHtml = buildArticleHtml(post, { isAbout, authorHtml });
-      const commentsConfig = siteConfig.comments;
-      const pageData = {
-        pageType: post.translationKey === 'about' ? 'about' : 'post',
-        lang: post.lang,
-        langSwitchUrl: post.langSwitchUrl || null,
-        langSwitcherMode: post.langSwitchUrl ? 'toggle' : 'hidden',
-        labels: {
-          navAbout: labels.navAbout,
-          navBlog: labels.navBlog,
-          filterAll: labels.filterAll,
-        },
-        comments:
-          isAbout || !commentsConfig
-            ? null
-            : {
-                appId: commentsConfig.appId,
-                pageId: post.translationKey,
-                pageUrl: canonicalUrl || post.url,
-                pageTitle: post.title,
-              },
-      };
-
-      const html = renderTemplate(postTemplate, {
-        PAGE_TITLE: isAbout ? siteTitle : `${post.title} | ${siteTitle}`,
-        META_TAGS: metaTags,
-        RSS_LINKS: rssLinks,
-        ICON_LINKS: iconLinks,
-        FONT_LINKS: fontLinks,
-        THEME_LINKS: themeLinks,
-        LANG: post.lang,
-        HOME_URL: buildHomeUrl(post.lang, defaultLang),
-        ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
-        BLOG_URL: buildListUrl(post.lang, defaultLang),
-        NAV_ABOUT_LABEL: labels.navAbout,
-        NAV_BLOG_LABEL: labels.navBlog,
-        SITE_TITLE: siteTitle,
-        ARTICLE_CONTENT: articleHtml,
-        TOC: post.tocHtml,
-        TOC_LAYOUT_CLASS: post.tocLayoutClass,
-        LANG_SWITCH_MODE: post.langSwitchUrl ? 'toggle' : 'hidden',
-        PAGE_DATA: stringifyPageData(pageData),
-      });
-
-      const targetDir = path.join(buildDir, stripLeadingSlash(post.url));
-      await writePage(targetDir, html);
-      if (isAbout) {
-        aboutHtmlByLang.set(post.lang, html);
-      }
-    })
+const run = async () => {
+  if (outputDir === inputDir) {
+    throw new Error('Output directory must be different from input directory.');
+  }
+  const config = await resolveGenerationConfig();
+  const { preserveOutput, buildDir } = await createBuildDirectory();
+  const authorData = await resolveAuthorData({
+    authorConfig: config.authorConfig,
+    configDir: config.defaultConfigDir,
+    buildDir,
+  });
+  const authorHtml = buildAuthorHtml(authorData);
+  const [listTemplate, postTemplate] = await Promise.all([
+    readTemplate(themeDir, 'index.html'),
+    readTemplate(themeDir, 'post.html'),
+  ]);
+  const posts = await loadPosts(inputDir);
+  const languageContext = resolveLanguageContext(posts);
+  const fontText = collectFontText(posts, config.siteTitle);
+  await copyThemeAssets({
+    targetDir: buildDir,
+    themeDir,
+    fontText,
+    themeAssets: config.themeAssets,
+  });
+  const imagePipeline = await createImagePipeline(buildDir);
+  const processedPosts = await processPostsWithAssets({
+    posts,
+    allowRemoteImages: config.allowRemoteImages,
+    imagePipeline,
+  });
+  const postPages = buildPostPages({
+    processedPosts,
+    groups: languageContext.groups,
+  });
+  const listDataByLang = buildListDataByLang({
+    languages: languageContext.languages,
+    postPages,
+  });
+  const { rssOutputs, rssEnabled } = buildRssOutputs({
+    siteUrl: config.siteUrl,
+    listDataByLang,
+    siteTitle: config.siteTitle,
+    defaultLang: languageContext.defaultLang,
+  });
+  const stringifyPageData = (value) => JSON.stringify(value, null, 2).replace(/</g, '\\u003c');
+  await writeJson(
+    path.join(buildDir, 'posts', 'filter-index.json'),
+    buildFilterIndex(listDataByLang)
   );
-
-  if (aboutHtmlByLang.size > 0) {
-    await Promise.all(
-      Array.from(aboutHtmlByLang.entries()).map(async ([lang, html]) => {
-        const aliasUrl = buildAboutUrl(lang, defaultLang, aboutGroup);
-        const targetDir = path.join(buildDir, stripLeadingSlash(aliasUrl));
-        await writePage(targetDir, html);
-      })
-    );
-  }
-
-  if (rssOutputs.length > 0) {
-    await Promise.all(
-      rssOutputs.map((feed) =>
-        writeFile(path.join(buildDir, stripLeadingSlash(feed.path)), feed.xml)
-      )
-    );
-  }
-
-  await Promise.all(
-    listDataByLang.map(async (group) => {
-      const pageUrl = buildListUrl(group.lang, defaultLang);
-      const categorySet = new Set();
-      group.items.forEach((item) => {
-        (item.categories || []).forEach((cat) => categorySet.add(cat));
-      });
-      const sortedCategoryNames = Array.from(categorySet).sort((a, b) => a.localeCompare(b));
-      const listHtml = buildListSectionsHtml(group.items, sortedCategoryNames);
-      const canonicalUrl = buildUrl(siteUrl, pageUrl);
-      const otherLang = languages.find((lang) => lang !== group.lang) || null;
-      const hreflangLinks = buildHreflangLinks(
-        languages.reduce((acc, lang) => {
-          acc[lang] = buildUrl(siteUrl, buildListUrl(lang, defaultLang));
-          return acc;
-        }, {})
-      );
-      const metaTags = buildMetaForList({
-        siteTitle,
-        description: 'Latest posts and essays.',
-        canonicalUrl,
-        prevUrl: null,
-        nextUrl: null,
-        hreflangLinks,
-      });
-      const rssLinks = rssEnabled
-        ? buildRssLinks({
-            lang: group.lang,
-            defaultLang,
-            siteUrl,
-            buildUrl,
-          })
-        : '';
-
-      const pageData = {
-        pageType: 'list',
-        lang: group.lang,
-        langSwitchUrl: otherLang ? buildListUrl(otherLang, defaultLang) : null,
-        langSwitcherMode: otherLang ? 'toggle' : 'hidden',
-        filterIndexUrl: '/posts/filter-index.json',
-        labels: {
-          navAbout: labels.navAbout,
-          navBlog: labels.navBlog,
-          filterAll: labels.filterAll,
-        },
-        posts: group.items.map((item) => ({
-          translationKey: item.translationKey,
-          title: item.title,
-          date: item.date,
-          categories: item.categories,
-          coverImage: item.coverPicture
-            ? {
-                webp: item.coverPicture.sources[0].src,
-                fallback: item.coverPicture.img.src,
-              }
-            : null,
-          url: item.url,
-        })),
-      };
-
-      const html = renderTemplate(listTemplate, {
-        PAGE_TITLE: `${siteTitle}`,
-        META_TAGS: metaTags,
-        RSS_LINKS: rssLinks,
-        ICON_LINKS: iconLinks,
-        FONT_LINKS: fontLinks,
-        THEME_LINKS: themeLinks,
-        LANG: group.lang,
-        HOME_URL: buildHomeUrl(group.lang, defaultLang),
-        ABOUT_URL: buildAboutUrl(group.lang, defaultLang, aboutGroup),
-        BLOG_URL: buildListUrl(group.lang, defaultLang),
-        NAV_ABOUT_LABEL: labels.navAbout,
-        NAV_BLOG_LABEL: labels.navBlog,
-        SITE_TITLE: siteTitle,
-        LIST_CONTENT: listHtml,
-        LANG_SWITCH_MODE: otherLang ? 'toggle' : 'hidden',
-        SEARCH_PLACEHOLDER: labels.searchPlaceholder,
-        PAGE_DATA: stringifyPageData(pageData),
-      });
-
-      const targetDir = path.join(buildDir, stripLeadingSlash(pageUrl));
-      await writePage(targetDir, html);
-    })
-  );
-
-  if (siteUrl) {
-    const urls = [
-      ...postPages.map((post) => buildUrl(siteUrl, post.url)),
-      ...listDataByLang.map((group) => buildUrl(siteUrl, buildListUrl(group.lang, defaultLang))),
-    ];
-    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
-      .map((url) => `  <url><loc>${url}</loc></url>`)
-      .join('\n')}\n</urlset>\n`;
-    await writeFile(path.join(buildDir, 'sitemap.xml'), sitemap);
-    await writeFile(
-      path.join(buildDir, 'robots.txt'),
-      `User-agent: *\nAllow: /\nSitemap: ${buildUrl(siteUrl, '/sitemap.xml')}\n`
-    );
-  }
-
-  if (preserveOutput) {
-    await ensureDir(outputDir);
-    await syncDirectory(buildDir, outputDir, new Set(['.git', 'CNAME', '.nojekyll']));
-    await fs.rm(buildDir, { recursive: true, force: true });
-  }
-
+  const aboutHtmlByLang = await writePostPages({
+    postPages,
+    buildDir,
+    postTemplate,
+    siteTitle: config.siteTitle,
+    siteUrl: config.siteUrl,
+    defaultLang: languageContext.defaultLang,
+    aboutGroup: languageContext.aboutGroup,
+    iconLinks: config.iconLinks,
+    fontLinks: config.fontLinks,
+    themeLinks: config.themeLinks,
+    labels: config.labels,
+    rssEnabled,
+    authorHtml,
+    commentsConfig: config.siteConfig.comments,
+    stringifyPageData,
+  });
+  await writeAboutAliases({
+    aboutHtmlByLang,
+    defaultLang: languageContext.defaultLang,
+    aboutGroup: languageContext.aboutGroup,
+    buildDir,
+  });
+  await writeRssFiles({ rssOutputs, buildDir });
+  await writeListPages({
+    listDataByLang,
+    languages: languageContext.languages,
+    defaultLang: languageContext.defaultLang,
+    siteTitle: config.siteTitle,
+    siteUrl: config.siteUrl,
+    listTemplate,
+    buildDir,
+    labels: config.labels,
+    iconLinks: config.iconLinks,
+    fontLinks: config.fontLinks,
+    themeLinks: config.themeLinks,
+    aboutGroup: languageContext.aboutGroup,
+    rssEnabled,
+    stringifyPageData,
+  });
+  await writeSitemapAndRobots({
+    siteUrl: config.siteUrl,
+    postPages,
+    listDataByLang,
+    defaultLang: languageContext.defaultLang,
+    buildDir,
+  });
+  await finalizeOutputDirectory({ preserveOutput, buildDir, outputDir });
   console.log(`Generated ${postPages.length} posts in ${outputDir}`);
 };
 
