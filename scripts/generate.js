@@ -5,10 +5,17 @@ import { processImage, processImageSource } from './images.js';
 import { buildRssFeed } from './content/rss.js';
 import { copyThemeAssets } from './media/assets.js';
 import { buildPostGroups, loadPosts } from './content/content.js';
-import { buildImageIndex } from './media/image-index.js';
+import { buildImageIndex, resolveImageFromIndex } from './media/image-index.js';
 import { isExternalAsset, isRemoteAsset, resolveLocalAsset } from './media/asset-resolver.js';
 import { renderMarkdownWithImages } from './content/markdown-renderer.js';
-import { ensureDir, pathExists, shouldPreserveOutput, writeJson } from './shared/fs-utils.js';
+import { preprocessObsidianContent } from './obsidian.js';
+import {
+  ensureDir,
+  pathExists,
+  shouldPreserveOutput,
+  writeFile,
+  writeJson,
+} from './shared/fs-utils.js';
 import { buildFontLinks, buildIconLinks, readTemplate } from './shared/templates.js';
 import { buildPostSummary, decorateListItems } from './shared/list-presenter.js';
 import { buildTocHtml } from './content/pages.js';
@@ -17,7 +24,9 @@ import {
   buildListUrl,
   buildPostCoverPath,
   buildPostImagePath,
+  buildPostMarkdownPath,
   buildPostUrl,
+  stripLeadingSlash,
   buildUrl,
 } from './shared/paths.js';
 import { THEME_CONSTANTS } from '../theme.constants.js';
@@ -632,6 +641,8 @@ const buildPostPages = ({ processedPosts, groups }) => {
       langSwitchUrl,
       defaultLang: group.defaultLang,
       languages: group.languages,
+      originLang: group.originLang,
+      markdownUrl: buildPostMarkdownPath(post.translationKey),
     };
   });
 };
@@ -686,6 +697,78 @@ const buildRssOutputs = ({ siteUrl, listDataByLang, siteTitle, defaultLang }) =>
 const buildFilterIndex = (listDataByLang) =>
   listDataByLang.flatMap((group) => group.items.map(buildPostSummary));
 
+const isOriginPage = (post) => post.markdownUrl && post.lang === post.originLang;
+
+const buildOriginPages = (postPages) => postPages.filter(isOriginPage).sort(sortPostsByDate);
+
+const formatMarkdownContent = (content) => `${String(content || '').replace(/\s+$/, '')}\n`;
+
+const writeOriginMarkdownFiles = async ({ buildDir, originPages, imageIndex }) =>
+  Promise.all(
+    originPages.map(async (post) => {
+      const processedContent = await preprocessObsidianContent({
+        source: post.content,
+        filePath: post.sourcePath,
+        imageIndex,
+        inputDir,
+        imageExts: IMAGE_EXTS,
+        pathExists,
+        resolveImageFromIndex,
+      });
+      const outputPath = path.join(buildDir, stripLeadingSlash(post.markdownUrl));
+      await ensureDir(path.dirname(outputPath));
+      await writeFile(outputPath, formatMarkdownContent(processedContent));
+    })
+  );
+
+const toPublicUrl = ({ siteUrl, pathName }) => buildUrl(siteUrl, pathName);
+
+const collectFilterTabs = (items) => {
+  const categorySet = new Set();
+  items.forEach((item) => {
+    (item.categories || []).forEach((category) => categorySet.add(category));
+  });
+  return ['All', ...Array.from(categorySet).sort((a, b) => a.localeCompare(b))];
+};
+
+const buildFilterLines = ({ listDataByLang, defaultLang, siteUrl }) =>
+  listDataByLang.map((group) => {
+    const tabs = collectFilterTabs(group.items).join(', ');
+    const listUrl = toPublicUrl({
+      siteUrl,
+      pathName: buildListUrl(group.lang, defaultLang),
+    });
+    return `- ${group.lang}: ${tabs} (page: ${listUrl})`;
+  });
+
+const buildLlmsTxt = ({ siteTitle, siteUrl, defaultLang, originPages, listDataByLang }) => {
+  const pageLines = originPages.map(
+    (post) =>
+      `- ${post.title} [${post.lang}] (${post.translationKey}) | html: ${toPublicUrl({
+        siteUrl,
+        pathName: post.url,
+      })} | markdown: ${toPublicUrl({ siteUrl, pathName: post.markdownUrl })}`
+  );
+  const filterLines = buildFilterLines({ listDataByLang, defaultLang, siteUrl });
+  return [
+    `# ${siteTitle}`,
+    '',
+    'This file lists canonical markdown URLs for original-language pages.',
+    `Home: ${toPublicUrl({ siteUrl, pathName: buildHomeUrl(defaultLang, defaultLang) })}`,
+    `Blog: ${toPublicUrl({ siteUrl, pathName: buildListUrl(defaultLang, defaultLang) })}`,
+    `Sitemap: ${toPublicUrl({ siteUrl, pathName: '/sitemap.xml' })}`,
+    `RSS: ${toPublicUrl({ siteUrl, pathName: '/rss.xml' })}`,
+    `Filter index: ${toPublicUrl({ siteUrl, pathName: '/posts/filter-index.json' })}`,
+    '',
+    'Filter tabs:',
+    ...filterLines,
+    '',
+    'Pages:',
+    ...pageLines,
+    '',
+  ].join('\n');
+};
+
 const run = async () => {
   if (outputDir === inputDir) {
     throw new Error('Output directory must be different from input directory.');
@@ -720,6 +803,7 @@ const run = async () => {
     processedPosts,
     groups: languageContext.groups,
   });
+  const originPages = buildOriginPages(postPages);
   const listDataByLang = buildListDataByLang({
     languages: languageContext.languages,
     postPages,
@@ -734,6 +818,21 @@ const run = async () => {
   await writeJson(
     path.join(buildDir, 'posts', 'filter-index.json'),
     buildFilterIndex(listDataByLang)
+  );
+  await writeOriginMarkdownFiles({
+    buildDir,
+    originPages,
+    imageIndex: imagePipeline.imageIndex,
+  });
+  await writeFile(
+    path.join(buildDir, 'llms.txt'),
+    buildLlmsTxt({
+      siteTitle: config.siteTitle,
+      siteUrl: config.siteUrl,
+      defaultLang: languageContext.defaultLang,
+      originPages,
+      listDataByLang,
+    })
   );
   const aboutHtmlByLang = await writePostPages({
     postPages,

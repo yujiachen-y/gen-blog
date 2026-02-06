@@ -207,6 +207,7 @@ export const buildMetaForPost = ({
   siteTitle,
   canonicalUrl,
   hreflangLinks,
+  markdownAlternateUrl,
   baseUrl,
   buildUrl,
 }) => {
@@ -217,6 +218,9 @@ export const buildMetaForPost = ({
     : null;
   const ogImage = ogImageSrc ? `<meta property="og:image" content="${ogImageSrc}" />` : '';
   const twitterCard = post.coverPicture ? 'summary_large_image' : 'summary';
+  const markdownAlternateLink = markdownAlternateUrl
+    ? `<link rel="alternate" type="text/markdown" href="${markdownAlternateUrl}" />`
+    : '';
 
   return buildMetaTags([
     `<meta name="description" content="${description}" />`,
@@ -227,6 +231,7 @@ export const buildMetaForPost = ({
     ogImage,
     `<meta name="twitter:card" content="${twitterCard}" />`,
     buildCanonical(canonicalUrl),
+    markdownAlternateLink,
     hreflangLinks,
   ]);
 };

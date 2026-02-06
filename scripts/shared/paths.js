@@ -43,6 +43,9 @@ export const buildPostImagePath = (post, index) =>
 
 export const buildPostCoverPath = (post) => path.posix.join(buildPostAssetDir(post), 'cover');
 
+export const buildPostMarkdownPath = (translationKey) =>
+  `/${path.posix.join('posts', translationKey, 'post.md')}`;
+
 export const buildUrl = (baseUrl, pathName) => {
   if (!baseUrl) {
     return pathName;

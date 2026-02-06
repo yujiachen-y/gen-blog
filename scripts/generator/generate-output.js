@@ -70,6 +70,7 @@ const buildPostMetaTags = ({ post, siteTitle, canonicalUrl, isAbout, siteUrl }) 
     siteTitle,
     canonicalUrl,
     hreflangLinks: buildPostHreflangLinks({ post, isAbout, siteUrl }),
+    markdownAlternateUrl: post.markdownUrl ? buildUrl(siteUrl, post.markdownUrl) : null,
     baseUrl: siteUrl,
     buildUrl,
   });

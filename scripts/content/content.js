@@ -58,6 +58,17 @@ const normalizeCategories = (value) => {
   return categories.length > 0 ? categories : null;
 };
 
+const detectSourceLangSuffix = (filePath) => {
+  const baseName = path.basename(filePath, path.extname(filePath)).toLowerCase();
+  if (baseName.endsWith('.zh')) {
+    return 'zh';
+  }
+  if (baseName.endsWith('.en')) {
+    return 'en';
+  }
+  return null;
+};
+
 const parsePublishFlag = (data, filePath) => {
   const blogPublish = data.blog_publish;
   if (blogPublish === undefined) {
@@ -96,6 +107,17 @@ const parseLang = (data, filePath) => {
   return { value: lang, error: null };
 };
 
+const parseOriginalLang = (data, filePath) => {
+  if (data.blog_original_lang === undefined) {
+    return { value: null, error: null };
+  }
+  const originalLang = normalizeLanguage(data.blog_original_lang);
+  if (!originalLang || !SUPPORTED_LANGS.has(originalLang)) {
+    return { value: null, error: `${filePath}: invalid blog_original_lang (must be zh or en)` };
+  }
+  return { value: originalLang, error: null };
+};
+
 const parseTranslationKey = (data, filePath) => {
   const translationKey = resolveTranslationKey(data.blog_translation_key);
   if (!translationKey) {
@@ -122,18 +144,21 @@ const parsePostFrontmatter = ({ data, content, filePath }) => {
   const title = parseTitle(data, filePath);
   const date = parseDate(data, filePath);
   const lang = parseLang(data, filePath);
+  const originalLang = parseOriginalLang(data, filePath);
   const translationKey = parseTranslationKey(data, filePath);
   const categories = parseCategories(data, filePath);
-  const errors = collectValueErrors([title, date, lang, translationKey, categories]);
+  const errors = collectValueErrors([title, date, lang, originalLang, translationKey, categories]);
   if (errors.length > 0) {
     return { post: null, errors };
   }
   return {
     post: {
       sourcePath: filePath,
+      sourceLangSuffix: detectSourceLangSuffix(filePath),
       title: title.value,
       date: date.value,
       lang: lang.value,
+      originalLang: originalLang.value,
       translationKey: translationKey.value,
       categories: categories.value,
       coverImage: data.blog_cover_image ? String(data.blog_cover_image).trim() : null,
@@ -171,6 +196,11 @@ export const buildPostGroups = (posts) => {
   const errors = [];
 
   posts.forEach((post) => {
+    if (post.sourceLangSuffix && post.sourceLangSuffix !== post.lang) {
+      errors.push(
+        `${post.sourcePath}: filename language suffix ".${post.sourceLangSuffix}.md" does not match blog_lang "${post.lang}"`
+      );
+    }
     if (!grouped.has(post.translationKey)) {
       grouped.set(post.translationKey, { translationKey: post.translationKey, translations: {} });
     }
@@ -184,19 +214,44 @@ export const buildPostGroups = (posts) => {
     group.translations[post.lang] = post;
   });
 
-  if (errors.length > 0) {
-    throw new Error(`Translation conflicts:\n${errors.join('\n')}`);
-  }
-
   const groups = Array.from(grouped.values()).map((group) => {
     const languages = Object.keys(group.translations).sort((a, b) => a.localeCompare(b));
     const defaultLang = languages.includes('en') ? 'en' : languages[0];
+    const postsInGroup = Object.values(group.translations);
+    const explicitOriginalLangs = Array.from(
+      new Set(postsInGroup.map((post) => post.originalLang).filter(Boolean))
+    );
+    if (explicitOriginalLangs.length > 1) {
+      errors.push(
+        `${group.translationKey}: conflicting blog_original_lang values (${explicitOriginalLangs.join(
+          ', '
+        )})`
+      );
+    }
+    const explicitOriginalLang = explicitOriginalLangs[0] || null;
+    if (explicitOriginalLang && !languages.includes(explicitOriginalLang)) {
+      errors.push(
+        `${group.translationKey}: blog_original_lang "${explicitOriginalLang}" must match one existing translation lang (${languages.join(
+          ', '
+        )})`
+      );
+    }
+    const unsuffixedLangs = Array.from(
+      new Set(postsInGroup.filter((post) => !post.sourceLangSuffix).map((post) => post.lang))
+    );
+    const inferredOriginalLang = unsuffixedLangs.length === 1 ? unsuffixedLangs[0] : null;
+    const originLang = explicitOriginalLang || inferredOriginalLang || defaultLang;
     return {
       ...group,
       languages,
       defaultLang,
+      originLang,
     };
   });
+
+  if (errors.length > 0) {
+    throw new Error(`Translation conflicts:\n${errors.join('\n')}`);
+  }
 
   return groups;
 };
