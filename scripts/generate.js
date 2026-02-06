@@ -10,7 +10,7 @@ import { isExternalAsset, isRemoteAsset, resolveLocalAsset } from './media/asset
 import { renderMarkdownWithImages } from './content/markdown-renderer.js';
 import { ensureDir, pathExists, shouldPreserveOutput, writeJson } from './shared/fs-utils.js';
 import { buildFontLinks, buildIconLinks, readTemplate } from './shared/templates.js';
-import { buildAuthorHtml, buildTocHtml } from './content/pages.js';
+import { buildProfileSidebarHtml, buildTocHtml } from './content/pages.js';
 import {
   buildHomeUrl,
   buildListUrl,
@@ -85,6 +85,12 @@ const readTrimmedString = ({ value, fallback = '', allowNull = false }) => {
 
 const normalizeAuthorSocialEntry = (entry, index) => {
   ensureObject(entry, `author.config.json: social[${index}] must be an object`);
+  if (entry.enabled !== undefined && typeof entry.enabled !== 'boolean') {
+    throw new Error(`author.config.json: social[${index}].enabled must be a boolean`);
+  }
+  if (entry.enabled === false) {
+    return null;
+  }
   const rawType = readTrimmedString({
     value: entry.type,
     fallback: '',
@@ -125,7 +131,7 @@ const normalizeAuthorSocial = (value) => {
   if (!Array.isArray(value)) {
     throw new Error('author.config.json: social must be an array');
   }
-  return value.map(normalizeAuthorSocialEntry);
+  return value.map(normalizeAuthorSocialEntry).filter(Boolean);
 };
 
 const parseAuthorConfig = (parsed) => {
@@ -703,7 +709,7 @@ const run = async () => {
     configDir: config.defaultConfigDir,
     buildDir,
   });
-  const authorHtml = buildAuthorHtml(authorData);
+  const profileSidebarHtml = buildProfileSidebarHtml(authorData);
   const [listTemplate, postTemplate] = await Promise.all([
     readTemplate(themeDir, 'index.html'),
     readTemplate(themeDir, 'post.html'),
@@ -755,7 +761,7 @@ const run = async () => {
     themeLinks: config.themeLinks,
     labels: config.labels,
     rssEnabled,
-    authorHtml,
+    profileSidebarHtml,
     commentsConfig: config.siteConfig.comments,
     stringifyPageData,
   });

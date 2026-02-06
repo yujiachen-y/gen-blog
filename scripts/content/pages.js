@@ -27,9 +27,12 @@ const SOCIAL_LABELS = {
 const SOCIAL_ICON_ATTRS =
   'viewBox="0 0 24 24" aria-hidden="true" focusable="false" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
 
+const SOCIAL_X_ICON_ATTRS =
+  'viewBox="0 0 24 24" aria-hidden="true" focusable="false" width="24" height="24" fill="currentColor" stroke="none"';
+
 const SOCIAL_ICONS = {
   email: `<svg ${SOCIAL_ICON_ATTRS}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 6-10 7L2 6" /></svg>`,
-  x: `<svg ${SOCIAL_ICON_ATTRS}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>`,
+  x: `<svg ${SOCIAL_X_ICON_ATTRS}><path d="M18.901 1.153h3.68l-8.036 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.59-9.818L0 1.154h7.594l5.243 6.932L18.901 1.153Zm-1.29 19.493h2.039L6.486 3.24H4.298l13.313 17.406Z" /></svg>`,
   github: `<svg ${SOCIAL_ICON_ATTRS}><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" /></svg>`,
   xiaohongshu: `<svg ${SOCIAL_ICON_ATTRS}><path d="M2 4h6a4 4 0 0 1 4 4v12a4 4 0 0 0-4-4H2z" /><path d="M22 4h-6a4 4 0 0 0-4 4v12a4 4 0 0 1 4-4h6z" /></svg>`,
   rss: `<svg ${SOCIAL_ICON_ATTRS}><path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1.5" fill="currentColor" stroke="none" /></svg>`,
@@ -62,7 +65,7 @@ export const buildSocialLinksHtml = (social) => {
   }
   const links = social
     .map((entry) => {
-      if (!entry) {
+      if (!entry || entry.enabled === false) {
         return '';
       }
       const label = entry.label || SOCIAL_LABELS[entry.type] || entry.type;
@@ -73,9 +76,12 @@ export const buildSocialLinksHtml = (social) => {
       const icon = SOCIAL_ICONS[entry.type] || '';
       const iconHtml = icon ? `<span class="about-social-icon">${icon}</span>` : '';
       const labelHtml = `<span class="about-social-link-text">${escapeHtml(label)}</span>`;
+      const openInNewTabAttrs = url.startsWith('mailto:')
+        ? ''
+        : ' target="_blank" rel="noopener noreferrer"';
       return `\n  <a class="about-social-link" href="${escapeHtml(
         url
-      )}" aria-label="${escapeHtml(label)}">${iconHtml}${labelHtml}</a>`;
+      )}" aria-label="${escapeHtml(label)}"${openInNewTabAttrs}>${iconHtml}${labelHtml}</a>`;
     })
     .filter(Boolean)
     .join('');
@@ -87,30 +93,19 @@ export const buildSocialLinksHtml = (social) => {
   return `\n<div class="about-social">${links}\n</div>\n`;
 };
 
-export const buildAuthorHtml = (authorConfig) => {
+export const buildProfileSidebarHtml = (authorConfig) => {
   if (!authorConfig) {
     return '';
   }
-  const avatarUrl = authorConfig.avatarUrl ? escapeHtml(authorConfig.avatarUrl) : '';
-  const avatarHtml = avatarUrl
-    ? `\n  <div class="about-avatar">\n    <img src="${avatarUrl}" alt="Avatar" />\n  </div>\n`
-    : '';
   const socialHtml = buildSocialLinksHtml(authorConfig.social || []);
-  if (!avatarHtml && !socialHtml) {
+  if (!socialHtml) {
     return '';
   }
-  const classes = [
-    'about-author',
-    avatarHtml ? 'has-avatar' : 'no-avatar',
-    socialHtml ? 'has-social' : 'no-social',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  return `\n<section class="${classes}">${avatarHtml}${socialHtml}\n</section>\n`;
+  return `\n<aside class="article-profile" data-profile>\n  <div class="article-profile-inner">${socialHtml}\n  </div>\n</aside>\n`;
 };
 
 export const buildArticleHtml = (post, options = {}) => {
-  const { isAbout = false, authorHtml = '' } = options;
+  const { isAbout = false } = options;
   const coverHtml = post.coverPicture
     ? `\n<div class="article-cover">${buildPictureHtml(post.coverPicture, {
         alt: post.title,
@@ -124,11 +119,10 @@ export const buildArticleHtml = (post, options = {}) => {
   const metaLabel = [post.date || '', categoryLabel].filter(Boolean).join(' · ');
   const metaHtml =
     !isAbout && metaLabel ? `\n  <div class="article-date">${escapeHtml(metaLabel)}</div>` : '';
-  const authorSection = isAbout && authorHtml ? `\n  ${authorHtml}` : '';
 
   return `\n${coverHtml}\n<div class="article-text-content">${metaHtml}\n  <h1 class="article-hero">${escapeHtml(
     post.title
-  )}</h1>${authorSection}\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
+  )}</h1>\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
 };
 
 export const buildTocHtml = (tocItems, lang) => {

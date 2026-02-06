@@ -58,11 +58,17 @@ const writeSinglePostPage = async ({
   labels,
   rssEnabled,
   stringifyPageData,
-  authorHtml,
+  profileSidebarHtml,
   commentsConfig,
 }) => {
   const canonicalUrl = buildUrl(siteUrl, post.url);
   const isAbout = post.translationKey === 'about';
+  const sidebarHtml = isAbout ? profileSidebarHtml || '' : post.tocHtml;
+  const layoutClass = isAbout
+    ? profileSidebarHtml
+      ? 'has-profile'
+      : 'no-toc'
+    : post.tocLayoutClass;
   const metaTags = buildMetaForPost({
     post,
     siteTitle,
@@ -71,18 +77,17 @@ const writeSinglePostPage = async ({
     baseUrl: siteUrl,
     buildUrl,
   });
-  const rssLinks = rssEnabled
-    ? buildRssLinks({
-        lang: post.lang,
-        defaultLang,
-        siteUrl,
-        buildUrl,
-      })
-    : '';
   const html = renderTemplate(postTemplate, {
     PAGE_TITLE: isAbout ? siteTitle : `${post.title} | ${siteTitle}`,
     META_TAGS: metaTags,
-    RSS_LINKS: rssLinks,
+    RSS_LINKS: rssEnabled
+      ? buildRssLinks({
+          lang: post.lang,
+          defaultLang,
+          siteUrl,
+          buildUrl,
+        })
+      : '',
     ICON_LINKS: iconLinks,
     FONT_LINKS: fontLinks,
     THEME_LINKS: themeLinks,
@@ -93,9 +98,9 @@ const writeSinglePostPage = async ({
     NAV_ABOUT_LABEL: labels.navAbout,
     NAV_BLOG_LABEL: labels.navBlog,
     SITE_TITLE: siteTitle,
-    ARTICLE_CONTENT: buildArticleHtml(post, { isAbout, authorHtml }),
-    TOC: post.tocHtml,
-    TOC_LAYOUT_CLASS: post.tocLayoutClass,
+    ARTICLE_CONTENT: buildArticleHtml(post, { isAbout }),
+    TOC: sidebarHtml,
+    TOC_LAYOUT_CLASS: layoutClass,
     LANG_SWITCH_MODE: post.langSwitchUrl ? 'toggle' : 'hidden',
     PAGE_DATA: stringifyPageData(
       buildPostPageData({
