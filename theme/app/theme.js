@@ -5,55 +5,151 @@ import {
   langSwitchers,
   themeStorageKey,
   languageStorageKey,
-  themeModes,
   saveScrollPosition,
 } from './state.js';
 
-const normalizeThemeMode = (mode) => (themeModes.includes(mode) ? mode : 'auto');
+const themeModes = ['dark', 'light'];
+const themeOverrideTtlMs = 24 * 60 * 60 * 1000;
+const themeOverrideHint = 'Manual selection expires in 24 hours.';
+const themeMediaQuery =
+  typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+let themeOverrideExpiryTimer = null;
 
-const getNextThemeMode = (mode) => {
-  const index = themeModes.indexOf(mode);
-  const nextIndex = index === -1 ? 0 : (index + 1) % themeModes.length;
-  return themeModes[nextIndex];
+const normalizeThemeMode = (mode) => (themeModes.includes(mode) ? mode : null);
+
+const getThemeLabel = (mode) => mode.charAt(0).toUpperCase() + mode.slice(1);
+
+const getSystemThemeMode = () => (themeMediaQuery && themeMediaQuery.matches ? 'dark' : 'light');
+
+const getNextThemeMode = (mode) => (mode === 'dark' ? 'light' : 'dark');
+
+const clearThemeOverrideExpiryTimer = () => {
+  if (!themeOverrideExpiryTimer) {
+    return;
+  }
+  window.clearTimeout(themeOverrideExpiryTimer);
+  themeOverrideExpiryTimer = null;
 };
 
 const updateThemeToggles = (mode) => {
-  const labelText = mode.charAt(0).toUpperCase() + mode.slice(1);
+  const labelText = getThemeLabel(mode);
   const nextMode = getNextThemeMode(mode);
+  const nextLabelText = getThemeLabel(nextMode);
   themeSwitchers.forEach((switcher) => {
     switcher.dataset.themeState = mode;
-    const label = switcher.querySelector('[data-theme-label]');
-    if (label) {
-      label.textContent = labelText;
-    }
     const trigger = switcher.querySelector('[data-theme-trigger]');
     if (trigger) {
       trigger.setAttribute(
         'aria-label',
-        `Theme mode: ${labelText}. Click to switch to ${nextMode}.`
+        `Theme mode: ${labelText}. Click to switch to ${nextLabelText}. ${themeOverrideHint}`
       );
+      trigger.setAttribute('aria-pressed', mode === 'dark');
     }
-    const options = switcher.querySelectorAll('[data-theme-option]');
-    options.forEach((option) => {
-      const isSelected = option.dataset.themeOption === mode;
-      option.classList.toggle('is-selected', isSelected);
-      option.setAttribute('aria-selected', isSelected);
-    });
   });
 };
 
-const applyThemeMode = (mode, { persist = false } = {}) => {
-  const normalizedMode = normalizeThemeMode(mode);
+const applyThemeMode = (mode) => {
+  const normalizedMode = normalizeThemeMode(mode) || getSystemThemeMode();
   document.documentElement.setAttribute('data-theme', normalizedMode);
   updateThemeToggles(normalizedMode);
-  if (persist) {
-    localStorage.setItem(themeStorageKey, normalizedMode);
+  return normalizedMode;
+};
+
+const serializeThemeOverride = (mode, expiresAt) => JSON.stringify({ mode, expiresAt });
+
+const setThemeOverride = (mode, expiresAt) => {
+  const normalizedMode = normalizeThemeMode(mode);
+  if (!normalizedMode || !Number.isFinite(expiresAt)) {
+    return;
+  }
+  localStorage.setItem(themeStorageKey, serializeThemeOverride(normalizedMode, expiresAt));
+};
+
+const clearThemeOverride = () => {
+  localStorage.removeItem(themeStorageKey);
+  clearThemeOverrideExpiryTimer();
+};
+
+const scheduleThemeOverrideExpiry = (expiresAt) => {
+  clearThemeOverrideExpiryTimer();
+  if (!Number.isFinite(expiresAt)) {
+    return;
+  }
+  const remainingMs = expiresAt - Date.now();
+  if (remainingMs <= 0) {
+    clearThemeOverride();
+    applyThemeMode(getSystemThemeMode());
+    return;
+  }
+  themeOverrideExpiryTimer = window.setTimeout(() => {
+    clearThemeOverride();
+    applyThemeMode(getSystemThemeMode());
+  }, remainingMs);
+};
+
+const parseThemeOverride = (rawValue) => {
+  if (!rawValue) {
+    return null;
+  }
+  const isLegacyMode = normalizeThemeMode(rawValue);
+  if (isLegacyMode) {
+    return { mode: isLegacyMode, expiresAt: Date.now() + themeOverrideTtlMs };
+  }
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (typeof parsed === 'string') {
+      const parsedLegacyMode = normalizeThemeMode(parsed);
+      if (!parsedLegacyMode) {
+        return null;
+      }
+      return { mode: parsedLegacyMode, expiresAt: Date.now() + themeOverrideTtlMs };
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    const mode = normalizeThemeMode(parsed.mode);
+    const expiresAt = Number(parsed.expiresAt);
+    if (!mode || !Number.isFinite(expiresAt)) {
+      return null;
+    }
+    return { mode, expiresAt };
+  } catch (error) {
+    return null;
   }
 };
 
+const getThemeOverride = () => {
+  const rawValue = localStorage.getItem(themeStorageKey);
+  if (!rawValue) {
+    return null;
+  }
+  const parsedOverride = parseThemeOverride(rawValue);
+  if (!parsedOverride) {
+    clearThemeOverride();
+    return null;
+  }
+  if (parsedOverride.expiresAt <= Date.now()) {
+    clearThemeOverride();
+    return null;
+  }
+  const serialized = serializeThemeOverride(parsedOverride.mode, parsedOverride.expiresAt);
+  if (serialized !== rawValue) {
+    localStorage.setItem(themeStorageKey, serialized);
+  }
+  return parsedOverride;
+};
+
 const initTheme = () => {
-  const storedMode = normalizeThemeMode(localStorage.getItem(themeStorageKey));
-  applyThemeMode(storedMode);
+  const themeOverride = getThemeOverride();
+  if (themeOverride) {
+    applyThemeMode(themeOverride.mode);
+    scheduleThemeOverrideExpiry(themeOverride.expiresAt);
+    return;
+  }
+  applyThemeMode(getSystemThemeMode());
+  clearThemeOverrideExpiryTimer();
 };
 
 const normalizeLanguage = (value) => {
@@ -93,23 +189,32 @@ const setLanguagePreference = (lang) => {
   }
 };
 
-const setThemeMenuState = (switcher, isOpen) => {
-  switcher.classList.toggle('is-open', isOpen);
-  const trigger = switcher.querySelector('[data-theme-trigger]');
-  if (trigger) {
-    trigger.setAttribute('aria-expanded', isOpen);
-  }
+const toggleThemeMode = () => {
+  const currentThemeMode =
+    normalizeThemeMode(document.documentElement.getAttribute('data-theme')) || getSystemThemeMode();
+  const nextThemeMode = getNextThemeMode(currentThemeMode);
+  applyThemeMode(nextThemeMode);
+  const expiresAt = Date.now() + themeOverrideTtlMs;
+  setThemeOverride(nextThemeMode, expiresAt);
+  scheduleThemeOverrideExpiry(expiresAt);
 };
 
-const closeThemeMenus = () => {
-  let closed = false;
-  themeSwitchers.forEach((switcher) => {
-    if (switcher.classList.contains('is-open')) {
-      setThemeMenuState(switcher, false);
-      closed = true;
-    }
-  });
-  return closed;
+const handleSystemThemeChange = (event) => {
+  clearThemeOverride();
+  applyThemeMode(event && event.matches ? 'dark' : 'light');
+};
+
+const initSystemThemeSync = () => {
+  if (!themeMediaQuery) {
+    return;
+  }
+  if (typeof themeMediaQuery.addEventListener === 'function') {
+    themeMediaQuery.addEventListener('change', handleSystemThemeChange);
+    return;
+  }
+  if (typeof themeMediaQuery.addListener === 'function') {
+    themeMediaQuery.addListener(handleSystemThemeChange);
+  }
 };
 
 const initLangSwitchers = () => {
@@ -132,43 +237,19 @@ const initLangSwitchers = () => {
 const initThemeSwitchers = () => {
   themeSwitchers.forEach((switcher) => {
     const trigger = switcher.querySelector('[data-theme-trigger]');
-    const options = Array.from(switcher.querySelectorAll('[data-theme-option]'));
-
-    if (trigger) {
-      trigger.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const isOpen = switcher.classList.contains('is-open');
-        closeThemeMenus();
-        setThemeMenuState(switcher, !isOpen);
-      });
+    if (!trigger) {
+      return;
     }
-
-    options.forEach((option) => {
-      option.addEventListener('click', (event) => {
-        event.stopPropagation();
-        applyThemeMode(option.dataset.themeOption, { persist: true });
-        closeThemeMenus();
-      });
+    trigger.addEventListener('click', () => {
+      toggleThemeMode();
     });
-  });
-
-  document.addEventListener('click', (event) => {
-    const clickedSwitcher = themeSwitchers.some((switcher) => switcher.contains(event.target));
-    if (!clickedSwitcher) {
-      closeThemeMenus();
-    }
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      closeThemeMenus();
-    }
   });
 };
 
 export const initThemeControls = () => {
   updateLangSwitchers(state.language);
   setLangSwitcherVisibility();
+  initSystemThemeSync();
   initTheme();
   initLangSwitchers();
   initThemeSwitchers();

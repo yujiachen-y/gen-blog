@@ -12,7 +12,6 @@ export const themeStorageKey = 'gen-blog-theme';
 export const languageStorageKey = 'gen-blog-lang';
 export const filterStorageKey = 'gen-blog-filter';
 export const scrollStorageKey = 'gen-blog-scroll';
-export const themeModes = ['auto', 'dark', 'light'];
 
 export const state = {
   filter: 'all',

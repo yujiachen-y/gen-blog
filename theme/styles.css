@@ -396,8 +396,7 @@ body[data-page='post'] .article-page {
   justify-content: center;
 }
 
-.theme-trigger:hover,
-.theme-switcher.is-open .theme-trigger {
+.theme-trigger:hover {
   color: var(--text-primary);
   background: var(--card-bg-hover);
   border-color: transparent;
@@ -425,79 +424,9 @@ body[data-page='post'] .article-page {
   display: none;
 }
 
-.theme-switcher[data-theme-state='auto'] .theme-icon-auto,
 .theme-switcher[data-theme-state='dark'] .theme-icon-dark,
 .theme-switcher[data-theme-state='light'] .theme-icon-light {
   display: block;
-}
-
-.theme-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.6rem);
-  background: var(--view-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 16px;
-  padding: 0.35rem;
-  min-width: 140px;
-  box-shadow: var(--card-shadow);
-  opacity: 0;
-  transform: translateY(-6px) scale(0.98);
-  pointer-events: none;
-  transition:
-    opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  z-index: 10;
-}
-
-.theme-switcher.is-open .theme-menu {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-.theme-option {
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  letter-spacing: 0.01em;
-  padding: 0.5rem 0.75rem;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.theme-option:hover {
-  color: var(--text-primary);
-  background: var(--card-bg-hover);
-  transform: translateX(2px);
-}
-
-.theme-option.is-selected {
-  color: var(--text-primary);
-  background: var(--pill-active-bg);
-}
-
-.theme-option-icon {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.theme-option-icon svg {
-  width: 18px;
-  height: 18px;
 }
 
 .article-controls {
@@ -511,10 +440,6 @@ body[data-page='post'] .article-page {
   justify-content: flex-end;
   gap: 0.6rem;
   z-index: 101;
-}
-
-.theme-switcher-article .theme-menu {
-  right: 0;
 }
 
 body.view-article .navbar .action-controls {
