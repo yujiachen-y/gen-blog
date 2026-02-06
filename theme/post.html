@@ -4,15 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{PAGE_TITLE}}</title>
-    {{META_TAGS}}
-    {{RSS_LINKS}}
-    {{ICON_LINKS}}
-    {{FONT_LINKS}}
+    {{META_TAGS}} {{RSS_LINKS}} {{ICON_LINKS}} {{FONT_LINKS}}
     <link rel="stylesheet" href="/katex/katex.min.css" />
     <link rel="stylesheet" href="/styles.css" />
     {{THEME_LINKS}}
   </head>
-  <body data-page="post">
+  <body data-page="{{BODY_PAGE}}">
     <div id="root">
       <nav class="navbar">
         <div class="nav-left">
@@ -24,7 +21,11 @@
         </div>
         <div class="controls">
           <div class="action-controls">
-            <div class="lang-switcher" data-lang-switcher data-lang-switcher-mode="{{LANG_SWITCH_MODE}}">
+            <div
+              class="lang-switcher"
+              data-lang-switcher
+              data-lang-switcher-mode="{{LANG_SWITCH_MODE}}"
+            >
               <button class="lang-toggle" type="button" data-lang-toggle>EN</button>
             </div>
             <div class="theme-switcher" data-theme-switcher data-theme-state="auto">

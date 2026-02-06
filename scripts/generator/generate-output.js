@@ -63,9 +63,10 @@ const writeSinglePostPage = async ({
 }) => {
   const canonicalUrl = buildUrl(siteUrl, post.url);
   const isAbout = post.translationKey === 'about';
+  const hasProfileSidebar = Boolean(profileSidebarHtml);
   const sidebarHtml = isAbout ? profileSidebarHtml || '' : post.tocHtml;
   const layoutClass = isAbout
-    ? profileSidebarHtml
+    ? hasProfileSidebar
       ? 'has-profile'
       : 'no-toc'
     : post.tocLayoutClass;
@@ -92,6 +93,7 @@ const writeSinglePostPage = async ({
     FONT_LINKS: fontLinks,
     THEME_LINKS: themeLinks,
     LANG: post.lang,
+    BODY_PAGE: isAbout ? 'about' : 'post',
     HOME_URL: buildHomeUrl(post.lang, defaultLang),
     ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
     BLOG_URL: buildListUrl(post.lang, defaultLang),

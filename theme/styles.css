@@ -891,6 +891,10 @@ body.view-article .navbar .action-controls {
   min-height: 100vh;
 }
 
+body[data-page='about'] .article-page {
+  min-height: auto;
+}
+
 .article-page::before {
   content: '';
   position: absolute;
@@ -1277,7 +1281,7 @@ body.view-article .navbar .action-controls {
   align-items: flex-start;
   width: min(100%, 184px);
   margin: 0 auto;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 
 .article-profile .about-social::before {
@@ -1310,7 +1314,7 @@ html[lang='zh'] .article-profile .about-social::before {
   border-radius: 0;
   border: none;
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   line-height: 1.3;
   color: var(--text-secondary);
   transition: color 0.2s ease;
@@ -1488,7 +1492,6 @@ html[lang='zh'] .article-profile .about-social::before {
     width: auto;
     justify-content: center;
     gap: 0.35rem;
-    font-size: 0.76rem;
   }
 }
 
