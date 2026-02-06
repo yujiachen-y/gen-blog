@@ -85,19 +85,6 @@ const createPicture = (coverImage, altText) => {
   return picture;
 };
 
-const getCategoryColorIndex = (categoryName) => {
-  const sorted = state.categories.map((c) => c.name).sort((a, b) => a.localeCompare(b.name));
-  const idx = sorted.indexOf(categoryName);
-  return idx === -1 ? 0 : idx % 5;
-};
-
-const formatShortDate = (dateStr) => {
-  if (!dateStr || dateStr.length < 10) {
-    return dateStr || '';
-  }
-  return dateStr.slice(5);
-};
-
 const createCard = (post) => {
   const card = document.createElement('a');
   const hasImage = Boolean(post.coverImage);
@@ -107,16 +94,16 @@ const createCard = (post) => {
   const wrapper = document.createElement('div');
   wrapper.className = 'card-content-wrapper';
 
-  const primaryCategory = (post.categories && post.categories[0]) || 'General';
-
   const title = document.createElement('div');
   title.className = 'card-title';
   title.textContent = post.title;
-  title.dataset.cat = String(getCategoryColorIndex(primaryCategory));
+  title.dataset.cat = String(
+    Number.isInteger(post.categoryColorIndex) ? post.categoryColorIndex : 0
+  );
 
   const date = document.createElement('span');
   date.className = 'card-date';
-  date.textContent = formatShortDate(post.date);
+  date.textContent = post.shortDate || post.date || '';
 
   wrapper.append(title, date);
   card.appendChild(wrapper);
@@ -134,7 +121,7 @@ const createCard = (post) => {
 const groupPostsByYear = (posts) => {
   const groups = [];
   posts.forEach((post) => {
-    const year = post.date ? post.date.slice(0, 4) : 'Unknown';
+    const year = post.year || (post.date ? post.date.slice(0, 4) : 'Unknown');
     const current = groups[groups.length - 1];
     if (!current || current.year !== year) {
       groups.push({ year, posts: [post] });
@@ -212,30 +199,6 @@ const loadFilterIndex = async () => {
   return response.json();
 };
 
-const colorizeExistingCards = () => {
-  const titleEls = document.querySelectorAll('.card-title');
-  titleEls.forEach((el) => {
-    if (el.dataset.cat !== undefined) {
-      return;
-    }
-    const card = el.closest('.card');
-    if (!card) {
-      return;
-    }
-    const catEl = card.querySelector('[data-category-name]');
-    if (!catEl) {
-      return;
-    }
-    const categoryName = catEl.dataset.categoryName;
-    const original = state.categories.find(
-      (c) => c.name.toLowerCase() === categoryName.toLowerCase()
-    );
-    if (original) {
-      el.dataset.cat = String(getCategoryColorIndex(original.name));
-    }
-  });
-};
-
 const initSearch = async () => {
   if (!searchInput) {
     return;
@@ -287,7 +250,6 @@ export const initFilters = async () => {
       state.filter = 'all';
     }
     renderFilters();
-    colorizeExistingCards();
     if (state.filter !== 'all') {
       renderFilteredPosts();
     }

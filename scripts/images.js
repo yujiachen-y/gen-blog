@@ -1,7 +1,7 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { resolveImageSourceInput } from './image-source.js';
 
 const DEFAULT_MAX_WIDTH = 680;
 const DEFAULT_MAX_IMAGE_BYTES = 600 * 1024;
@@ -16,6 +16,20 @@ const DEFAULT_PUBLIC_BASE = '/assets';
 const DEFAULT_REMOTE_DIR = 'remote';
 const DEFAULT_REMOTE_MAX_BYTES = 8 * 1024 * 1024;
 const DEFAULT_REMOTE_TIMEOUT_MS = 10000;
+const DEFAULT_OPTIONS = {
+  outputBase: DEFAULT_OUTPUT_BASE,
+  sourceBase: null,
+  publicBase: DEFAULT_PUBLIC_BASE,
+  maxWidth: DEFAULT_MAX_WIDTH,
+  minWidth: DEFAULT_MIN_WIDTH,
+  maxBytes: DEFAULT_MAX_IMAGE_BYTES,
+  resizeStep: RESIZE_STEP,
+  jpegQuality: DEFAULT_JPEG_QUALITY,
+  webpQuality: DEFAULT_WEBP_QUALITY,
+  remoteDir: DEFAULT_REMOTE_DIR,
+  remoteMaxBytes: DEFAULT_REMOTE_MAX_BYTES,
+  remoteTimeoutMs: DEFAULT_REMOTE_TIMEOUT_MS,
+};
 
 const ensureDir = (dir) => fs.mkdir(dir, { recursive: true });
 
@@ -26,26 +40,6 @@ const getImageKind = (ext) => {
     return 'jpeg';
   }
   if (ext === '.png') {
-    return 'png';
-  }
-  return null;
-};
-
-const normalizeMime = (value) => {
-  if (!value) {
-    return null;
-  }
-  return value.split(';')[0].trim().toLowerCase();
-};
-
-const getImageKindFromMime = (mime) => {
-  if (!mime) {
-    return null;
-  }
-  if (mime === 'image/jpeg' || mime === 'image/jpg') {
-    return 'jpeg';
-  }
-  if (mime === 'image/png') {
     return 'png';
   }
   return null;
@@ -72,20 +66,17 @@ const resolveRelativePath = (inputPath, sourceBase) => {
   return isUnsafe ? path.basename(inputPath) : relative;
 };
 
-const resolveOptions = (options = {}) => ({
-  outputBase: options.outputBase ? path.resolve(options.outputBase) : DEFAULT_OUTPUT_BASE,
-  sourceBase: options.sourceBase ? path.resolve(options.sourceBase) : null,
-  publicBase: options.publicBase ?? DEFAULT_PUBLIC_BASE,
-  maxWidth: options.maxWidth ?? DEFAULT_MAX_WIDTH,
-  minWidth: options.minWidth ?? DEFAULT_MIN_WIDTH,
-  maxBytes: options.maxBytes ?? DEFAULT_MAX_IMAGE_BYTES,
-  resizeStep: options.resizeStep ?? RESIZE_STEP,
-  jpegQuality: options.jpegQuality ?? DEFAULT_JPEG_QUALITY,
-  webpQuality: options.webpQuality ?? DEFAULT_WEBP_QUALITY,
-  remoteDir: options.remoteDir ?? DEFAULT_REMOTE_DIR,
-  remoteMaxBytes: options.remoteMaxBytes ?? DEFAULT_REMOTE_MAX_BYTES,
-  remoteTimeoutMs: options.remoteTimeoutMs ?? DEFAULT_REMOTE_TIMEOUT_MS,
-});
+const resolveOptions = (options = {}) => {
+  const merged = {
+    ...DEFAULT_OPTIONS,
+    ...options,
+  };
+  return {
+    ...merged,
+    outputBase: path.resolve(merged.outputBase),
+    sourceBase: merged.sourceBase ? path.resolve(merged.sourceBase) : null,
+  };
+};
 
 const calculateTargetSize = (metadata, maxWidth) => {
   if (!metadata.width || !metadata.height) {
@@ -128,6 +119,93 @@ const buildOutputPathsFromRelative = (relativePath, options, imageKind) => {
 
 const buildSharp = (input) => sharp(input, { failOnError: true });
 
+const createResizeState = (metadata, options) => {
+  const hasDimensions = Boolean(metadata.width && metadata.height);
+  const width = hasDimensions ? Math.min(options.maxWidth, metadata.width) : options.maxWidth;
+  return {
+    hasDimensions,
+    width,
+    jpegQuality: options.jpegQuality,
+    webpQuality: options.webpQuality,
+  };
+};
+
+const buildPipelines = ({ input, imageKind, state }) => {
+  const resized = buildSharp(input).rotate().resize({
+    width: state.width,
+    withoutEnlargement: true,
+  });
+  return {
+    webp:
+      imageKind === 'jpeg'
+        ? resized.clone().webp({ quality: state.webpQuality })
+        : resized.clone().webp({ lossless: true }),
+    fallback:
+      imageKind === 'jpeg'
+        ? resized.clone().jpeg({ quality: state.jpegQuality, mozjpeg: true })
+        : resized.clone().png({ compressionLevel: 9, adaptiveFiltering: true }),
+  };
+};
+
+const renderBuffers = async ({ input, imageKind, state }) => {
+  const pipelines = buildPipelines({ input, imageKind, state });
+  const [webp, fallback] = await Promise.all([
+    pipelines.webp.toBuffer(),
+    pipelines.fallback.toBuffer(),
+  ]);
+  return { webp, fallback };
+};
+
+const isWithinMaxBytes = (buffers, state, options) =>
+  !state.hasDimensions ||
+  Math.max(buffers.webp.length, buffers.fallback.length) <= options.maxBytes;
+
+const resolveNextWidth = (state, options) => {
+  if (state.width <= options.minWidth) {
+    return null;
+  }
+  const next = Math.max(Math.floor(state.width * options.resizeStep), options.minWidth);
+  return next === state.width ? options.minWidth : next;
+};
+
+const canLowerJpegQuality = (state) =>
+  state.jpegQuality > MIN_JPEG_QUALITY || state.webpQuality > MIN_JPEG_QUALITY;
+
+const getNextResizeState = (state, imageKind, options) => {
+  const nextWidth = resolveNextWidth(state, options);
+  if (nextWidth !== null) {
+    return { ...state, width: nextWidth };
+  }
+  if (imageKind !== 'jpeg' || !canLowerJpegQuality(state)) {
+    return null;
+  }
+  return {
+    ...state,
+    jpegQuality: Math.max(state.jpegQuality - QUALITY_STEP, MIN_JPEG_QUALITY),
+    webpQuality: Math.max(state.webpQuality - QUALITY_STEP, MIN_JPEG_QUALITY),
+  };
+};
+
+const optimizeImageBuffers = async ({ input, imageKind, metadata, options }) => {
+  let state = createResizeState(metadata, options);
+  let buffers = null;
+
+  let keepTrying = true;
+  while (keepTrying) {
+    buffers = await renderBuffers({ input, imageKind, state });
+    if (isWithinMaxBytes(buffers, state, options)) {
+      return { buffers, state };
+    }
+    const next = getNextResizeState(state, imageKind, options);
+    if (!next) {
+      keepTrying = false;
+    } else {
+      state = next;
+    }
+  }
+  return { buffers, state };
+};
+
 const processImageInput = async ({ input, imageKind, relativePath }, options) => {
   const resolvedOptions = resolveOptions(options);
   const outputPaths = buildOutputPathsFromRelative(relativePath, resolvedOptions, imageKind);
@@ -136,71 +214,17 @@ const processImageInput = async ({ input, imageKind, relativePath }, options) =>
   await ensureDir(outputDir);
 
   const metadata = await buildSharp(input).metadata();
-  const maxWidth = resolvedOptions.maxWidth;
-  const maxBytes = resolvedOptions.maxBytes;
-  const minWidth = resolvedOptions.minWidth;
-  const resizeStep = resolvedOptions.resizeStep;
-  let jpegQuality = resolvedOptions.jpegQuality;
-  let webpQuality = resolvedOptions.webpQuality;
-  const hasDimensions = Boolean(metadata.width && metadata.height);
-  const initialWidth = hasDimensions ? Math.min(maxWidth, metadata.width) : maxWidth;
-
-  let currentWidth = initialWidth;
-  let webpBuffer = null;
-  let fallbackBuffer = null;
-
-  let shouldResize = true;
-  while (shouldResize) {
-    const resized = buildSharp(input).rotate().resize({
-      width: currentWidth,
-      withoutEnlargement: true,
-    });
-
-    const webpPipeline =
-      imageKind === 'jpeg'
-        ? resized.clone().webp({ quality: webpQuality })
-        : resized.clone().webp({ lossless: true });
-
-    const fallbackPipeline =
-      imageKind === 'jpeg'
-        ? resized.clone().jpeg({ quality: jpegQuality, mozjpeg: true })
-        : resized.clone().png({ compressionLevel: 9, adaptiveFiltering: true });
-
-    [webpBuffer, fallbackBuffer] = await Promise.all([
-      webpPipeline.toBuffer(),
-      fallbackPipeline.toBuffer(),
-    ]);
-
-    const largestSize = Math.max(webpBuffer.length, fallbackBuffer.length);
-    if (!hasDimensions || largestSize <= maxBytes) {
-      shouldResize = false;
-      break;
-    }
-    if (currentWidth > minWidth) {
-      const nextWidth = Math.max(Math.floor(currentWidth * resizeStep), minWidth);
-      if (nextWidth === currentWidth) {
-        currentWidth = minWidth;
-      } else {
-        currentWidth = nextWidth;
-      }
-      continue;
-    }
-    if (
-      imageKind === 'jpeg' &&
-      (jpegQuality > MIN_JPEG_QUALITY || webpQuality > MIN_JPEG_QUALITY)
-    ) {
-      jpegQuality = Math.max(jpegQuality - QUALITY_STEP, MIN_JPEG_QUALITY);
-      webpQuality = Math.max(webpQuality - QUALITY_STEP, MIN_JPEG_QUALITY);
-      continue;
-    }
-    shouldResize = false;
-  }
-
-  const targetSize = calculateTargetSize(metadata, currentWidth);
+  const { buffers, state } = await optimizeImageBuffers({
+    input,
+    imageKind,
+    metadata,
+    options: resolvedOptions,
+  });
+  const targetSize = calculateTargetSize(metadata, state.width);
 
   await Promise.all([
-    fs.writeFile(outputPaths.webp.filePath, webpBuffer),
-    fs.writeFile(outputPaths.fallback.filePath, fallbackBuffer),
+    fs.writeFile(outputPaths.webp.filePath, buffers.webp),
+    fs.writeFile(outputPaths.fallback.filePath, buffers.fallback),
   ]);
 
   return {
@@ -242,100 +266,14 @@ export const processImage = async (inputPath, options = {}) => {
   return processImageInput({ input: inputPath, imageKind, relativePath }, resolvedOptions);
 };
 
-const parseDataUri = (src) => {
-  const match = /^data:([^;,]+);base64,(.*)$/i.exec(src);
-  if (!match) {
-    return null;
-  }
-  const mime = normalizeMime(match[1]);
-  const data = match[2].trim();
-  if (!mime || !data) {
-    return null;
-  }
-  return { mime, buffer: Buffer.from(data, 'base64') };
-};
-
-const hashBuffer = (buffer) => crypto.createHash('sha1').update(buffer).digest('hex').slice(0, 16);
-
-const resolveRemoteRelativePath = (buffer, imageKind, options) => {
-  const hash = hashBuffer(buffer);
-  const ext = imageKind === 'jpeg' ? '.jpg' : '.png';
-  return path.join(options.remoteDir, `${hash}${ext}`);
-};
-
-const inferImageKindFromUrl = (src, contentType) => {
-  const fromMime = getImageKindFromMime(normalizeMime(contentType));
-  if (fromMime) {
-    return fromMime;
-  }
-
-  try {
-    const url = new URL(src);
-    return getImageKind(path.extname(url.pathname).toLowerCase());
-  } catch {
-    return null;
-  }
-};
-
-const fetchRemoteImage = async (src, options) => {
-  const controller = new AbortController();
-  const timeoutMs = options.remoteTimeoutMs;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(src, { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image (${response.status}): ${src}`);
-    }
-    const contentType = response.headers.get('content-type');
-    const contentLength = Number(response.headers.get('content-length'));
-    if (Number.isFinite(contentLength) && contentLength > options.remoteMaxBytes) {
-      throw new Error(
-        `Remote image too large (${contentLength} bytes, max ${options.remoteMaxBytes}): ${src}`
-      );
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > options.remoteMaxBytes) {
-      throw new Error(
-        `Remote image too large (${buffer.length} bytes, max ${options.remoteMaxBytes}): ${src}`
-      );
-    }
-    return { buffer, contentType };
-  } catch (error) {
-    if (error && error.name === 'AbortError') {
-      throw new Error(`Remote image fetch timed out after ${timeoutMs}ms: ${src}`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
-
 export const processImageSource = async (src, options = {}) => {
   const resolvedOptions = resolveOptions(options);
-
-  if (src.startsWith('data:')) {
-    const parsed = parseDataUri(src);
-    if (!parsed) {
-      throw new Error('Unsupported data URI image');
-    }
-    const imageKind = getImageKindFromMime(parsed.mime);
-    if (!imageKind) {
-      throw new Error(`Unsupported data URI mime type: ${parsed.mime}`);
-    }
-    const relativePath =
-      options.relativePath || resolveRemoteRelativePath(parsed.buffer, imageKind, resolvedOptions);
-    return processImageInput({ input: parsed.buffer, imageKind, relativePath }, resolvedOptions);
-  }
-
-  const { buffer, contentType } = await fetchRemoteImage(src, resolvedOptions);
-  const imageKind = inferImageKindFromUrl(src, contentType);
-  if (!imageKind) {
-    throw new Error(`Unsupported remote image type: ${src}`);
-  }
-  const relativePath =
-    options.relativePath || resolveRemoteRelativePath(buffer, imageKind, resolvedOptions);
-  return processImageInput({ input: buffer, imageKind, relativePath }, resolvedOptions);
+  const sourceInput = await resolveImageSourceInput({
+    src,
+    options: resolvedOptions,
+    relativePath: options.relativePath,
+  });
+  return processImageInput(sourceInput, resolvedOptions);
 };
 
 export const processImages = async (inputPaths, options) => {

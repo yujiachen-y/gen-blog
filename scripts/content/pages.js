@@ -1,4 +1,5 @@
 import { escapeHtml } from '../shared/templates.js';
+import { formatShortDate, groupPostsByYear } from '../shared/list-presenter.js';
 
 export const buildPictureHtml = (picture, options = {}) => {
   if (!picture) {
@@ -59,6 +60,19 @@ const buildSocialUrl = (type, value) => {
   return builder ? builder(value) : '';
 };
 
+const SIDEBAR_TITLES = {
+  toc: {
+    zh: '目录',
+    en: 'Contents',
+  },
+  social: {
+    zh: '联系',
+    en: 'Connect',
+  },
+};
+
+const getSidebarTitle = (type, lang) => SIDEBAR_TITLES[type][lang === 'zh' ? 'zh' : 'en'];
+
 export const buildSocialLinksHtml = (social) => {
   if (!Array.isArray(social) || social.length === 0) {
     return '';
@@ -75,13 +89,13 @@ export const buildSocialLinksHtml = (social) => {
       }
       const icon = SOCIAL_ICONS[entry.type] || '';
       const iconHtml = icon ? `<span class="about-social-icon">${icon}</span>` : '';
-      const labelHtml = `<span class="about-social-link-text">${escapeHtml(label)}</span>`;
+      const labelHtml = `<span class="about-social-link-text sidebar-link-text">${escapeHtml(label)}</span>`;
       const openInNewTabAttrs = url.startsWith('mailto:')
         ? ''
         : ' target="_blank" rel="noopener noreferrer"';
-      return `\n  <a class="about-social-link" href="${escapeHtml(
+      return `\n    <li class="about-social-item sidebar-item"><a class="about-social-link sidebar-link" href="${escapeHtml(
         url
-      )}" aria-label="${escapeHtml(label)}"${openInNewTabAttrs}>${iconHtml}${labelHtml}</a>`;
+      )}" aria-label="${escapeHtml(label)}"${openInNewTabAttrs}>${iconHtml}${labelHtml}</a></li>`;
     })
     .filter(Boolean)
     .join('');
@@ -90,10 +104,10 @@ export const buildSocialLinksHtml = (social) => {
     return '';
   }
 
-  return `\n<div class="about-social">${links}\n</div>\n`;
+  return links;
 };
 
-export const buildProfileSidebarHtml = (authorConfig) => {
+export const buildProfileSidebarHtml = (authorConfig, lang) => {
   if (!authorConfig) {
     return '';
   }
@@ -101,7 +115,8 @@ export const buildProfileSidebarHtml = (authorConfig) => {
   if (!socialHtml) {
     return '';
   }
-  return `\n<aside class="article-profile" data-profile>\n  <div class="article-profile-inner">${socialHtml}\n  </div>\n</aside>\n`;
+  const title = getSidebarTitle('social', lang);
+  return `\n<aside class="article-profile sidebar-panel sidebar-panel-static" data-profile>\n  <div class="article-profile-inner">\n    <div class="about-social">\n      <div class="about-social-title sidebar-title">${escapeHtml(title)}</div>\n      <ul class="about-social-list sidebar-list">${socialHtml}\n      </ul>\n    </div>\n  </div>\n</aside>\n`;
 };
 
 export const buildArticleHtml = (post, options = {}) => {
@@ -129,29 +144,21 @@ export const buildTocHtml = (tocItems, lang) => {
   if (!tocItems || tocItems.length === 0) {
     return '';
   }
-  const title = lang === 'zh' ? '目录' : 'Contents';
+  const title = getSidebarTitle('toc', lang);
   const items = tocItems
     .map(
       (item) =>
-        `\n      <li class="toc-item toc-level-${item.level}"><a href="#${escapeHtml(
+        `\n      <li class="toc-item sidebar-item toc-level-${item.level}"><a class="sidebar-link" href="#${escapeHtml(
           item.id
         )}">${escapeHtml(item.text || item.id)}</a></li>`
     )
     .join('');
-  return `\n    <aside class="article-toc" data-toc>\n      <button class="toc-toggle" type="button" data-toc-toggle aria-expanded="false">\n        <span class="toc-toggle-label">${escapeHtml(title)}</span>\n        <span class="toc-toggle-icon" aria-hidden="true">⌄</span>\n      </button>\n      <div class="toc-panel" data-toc-panel>\n        <div class="toc-title">${escapeHtml(title)}</div>\n        <ol class="toc-list">${items}\n        </ol>\n      </div>\n    </aside>\n  `;
+  return `\n    <aside class="article-toc sidebar-panel" data-toc>\n      <button class="toc-toggle sidebar-toggle" type="button" data-toc-toggle aria-expanded="false">\n        <span class="toc-toggle-label">${escapeHtml(title)}</span>\n        <span class="toc-toggle-icon" aria-hidden="true">⌄</span>\n      </button>\n      <div class="toc-panel sidebar-panel-content" data-toc-panel>\n        <div class="toc-title sidebar-title">${escapeHtml(title)}</div>\n        <ol class="toc-list sidebar-list">${items}\n        </ol>\n      </div>\n    </aside>\n  `;
 };
 
-const formatShortDate = (dateStr) => {
-  if (!dateStr || dateStr.length < 10) {
-    return dateStr || '';
-  }
-  return dateStr.slice(5);
-};
-
-export const buildCardHtml = (post, sortedCategoryNames) => {
-  const categoryLabel = post.categories[0] || 'General';
-  const catIndex = sortedCategoryNames ? sortedCategoryNames.indexOf(categoryLabel) % 5 : 0;
-  const dataCat = catIndex === -1 ? 0 : catIndex;
+export const buildCardHtml = (post) => {
+  const categoryLabel = (post.categories && post.categories[0]) || 'General';
+  const dataCat = Number.isInteger(post.categoryColorIndex) ? post.categoryColorIndex : 0;
   const coverHtml = post.coverPicture
     ? buildPictureHtml(post.coverPicture, {
         alt: post.title,
@@ -159,7 +166,7 @@ export const buildCardHtml = (post, sortedCategoryNames) => {
         loading: 'lazy',
       })
     : '';
-  const shortDate = formatShortDate(post.date);
+  const shortDate = post.shortDate || formatShortDate(post.date);
 
   return `\n<a class="card${post.coverPicture ? ' has-image' : ''}" href="${post.url}">\n  <div class="card-content-wrapper">\n    <div class="card-title" data-cat="${dataCat}" data-category-name="${escapeHtml(
     categoryLabel
@@ -168,21 +175,11 @@ export const buildCardHtml = (post, sortedCategoryNames) => {
   )}</span>\n  </div>\n  ${coverHtml}\n</a>\n`;
 };
 
-export const buildListSectionsHtml = (items, sortedCategoryNames) => {
-  const groups = [];
-  items.forEach((item) => {
-    const year = item.date ? item.date.slice(0, 4) : 'Unknown';
-    const current = groups[groups.length - 1];
-    if (!current || current.year !== year) {
-      groups.push({ year, items: [item] });
-    } else {
-      current.items.push(item);
-    }
-  });
-
+export const buildListSectionsHtml = (items) => {
+  const groups = groupPostsByYear(items);
   return groups
     .map((group) => {
-      const cards = group.items.map((item) => buildCardHtml(item, sortedCategoryNames)).join('');
+      const cards = group.items.map((item) => buildCardHtml(item)).join('');
       return `\n<section class="year-section">\n  <h2 class="year-heading">${escapeHtml(
         group.year
       )}</h2>\n  <div class="year-posts">${cards}</div>\n</section>\n`;

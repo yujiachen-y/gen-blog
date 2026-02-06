@@ -10,7 +10,8 @@ import { isExternalAsset, isRemoteAsset, resolveLocalAsset } from './media/asset
 import { renderMarkdownWithImages } from './content/markdown-renderer.js';
 import { ensureDir, pathExists, shouldPreserveOutput, writeJson } from './shared/fs-utils.js';
 import { buildFontLinks, buildIconLinks, readTemplate } from './shared/templates.js';
-import { buildProfileSidebarHtml, buildTocHtml } from './content/pages.js';
+import { buildPostSummary, decorateListItems } from './shared/list-presenter.js';
+import { buildTocHtml } from './content/pages.js';
 import {
   buildHomeUrl,
   buildListUrl,
@@ -646,9 +647,11 @@ const sortPostsByDate = (a, b) => {
 const buildListDataByLang = ({ languages, postPages }) =>
   languages.map((lang) => ({
     lang,
-    items: postPages
-      .filter((post) => post.lang === lang && post.translationKey !== 'about')
-      .sort(sortPostsByDate),
+    items: decorateListItems(
+      postPages
+        .filter((post) => post.lang === lang && post.translationKey !== 'about')
+        .sort(sortPostsByDate)
+    ),
   }));
 
 const buildRssOutputs = ({ siteUrl, listDataByLang, siteTitle, defaultLang }) => {
@@ -681,22 +684,7 @@ const buildRssOutputs = ({ siteUrl, listDataByLang, siteTitle, defaultLang }) =>
 };
 
 const buildFilterIndex = (listDataByLang) =>
-  listDataByLang.flatMap((group) =>
-    group.items.map((post) => ({
-      translationKey: post.translationKey,
-      lang: post.lang,
-      title: post.title,
-      date: post.date,
-      categories: post.categories,
-      coverImage: post.coverPicture
-        ? {
-            webp: post.coverPicture.sources[0].src,
-            fallback: post.coverPicture.img.src,
-          }
-        : null,
-      url: post.url,
-    }))
-  );
+  listDataByLang.flatMap((group) => group.items.map(buildPostSummary));
 
 const run = async () => {
   if (outputDir === inputDir) {
@@ -709,7 +697,6 @@ const run = async () => {
     configDir: config.defaultConfigDir,
     buildDir,
   });
-  const profileSidebarHtml = buildProfileSidebarHtml(authorData);
   const [listTemplate, postTemplate] = await Promise.all([
     readTemplate(themeDir, 'index.html'),
     readTemplate(themeDir, 'post.html'),
@@ -761,7 +748,7 @@ const run = async () => {
     themeLinks: config.themeLinks,
     labels: config.labels,
     rssEnabled,
-    profileSidebarHtml,
+    authorData,
     commentsConfig: config.siteConfig.comments,
     stringifyPageData,
   });

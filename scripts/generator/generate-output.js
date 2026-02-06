@@ -1,7 +1,13 @@
 import path from 'node:path';
+import { buildNavbarHtml } from '../content/layout.js';
 import { buildRssLinks } from '../content/rss.js';
 import { writeFile, writePage } from '../shared/fs-utils.js';
-import { buildHreflangLinks, buildArticleHtml, buildMetaForPost } from '../content/pages.js';
+import {
+  buildHreflangLinks,
+  buildArticleHtml,
+  buildMetaForPost,
+  buildProfileSidebarHtml,
+} from '../content/pages.js';
 import {
   buildAboutUrl,
   buildHomeUrl,
@@ -44,6 +50,113 @@ const buildPostPageData = ({ post, isAbout, labels, commentsConfig, canonicalUrl
         },
 });
 
+const resolveSidebarLayout = ({ post, isAbout, authorData }) => {
+  if (!isAbout) {
+    return {
+      sidebarHtml: post.tocHtml,
+      layoutClass: post.tocLayoutClass,
+    };
+  }
+  const profileSidebarHtml = buildProfileSidebarHtml(authorData, post.lang);
+  return {
+    sidebarHtml: profileSidebarHtml,
+    layoutClass: profileSidebarHtml ? 'has-profile' : 'no-toc',
+  };
+};
+
+const buildPostMetaTags = ({ post, siteTitle, canonicalUrl, isAbout, siteUrl }) =>
+  buildMetaForPost({
+    post,
+    siteTitle,
+    canonicalUrl,
+    hreflangLinks: buildPostHreflangLinks({ post, isAbout, siteUrl }),
+    baseUrl: siteUrl,
+    buildUrl,
+  });
+
+const buildPostRenderContext = ({ post, defaultLang, aboutGroup, labels, siteTitle }) => {
+  const homeUrl = buildHomeUrl(post.lang, defaultLang);
+  const aboutUrl = buildAboutUrl(post.lang, defaultLang, aboutGroup);
+  const blogUrl = buildListUrl(post.lang, defaultLang);
+  const langSwitchMode = post.langSwitchUrl ? 'toggle' : 'hidden';
+  return {
+    homeUrl,
+    aboutUrl,
+    blogUrl,
+    langSwitchMode,
+    navbarHtml: buildNavbarHtml({
+      homeUrl,
+      aboutUrl,
+      blogUrl,
+      navAboutLabel: labels.navAbout,
+      navBlogLabel: labels.navBlog,
+      siteTitle,
+      langSwitchMode,
+    }),
+  };
+};
+
+const buildPostRssLinks = ({ rssEnabled, post, defaultLang, siteUrl }) =>
+  rssEnabled
+    ? buildRssLinks({
+        lang: post.lang,
+        defaultLang,
+        siteUrl,
+        buildUrl,
+      })
+    : '';
+
+const buildPostTemplateValues = ({
+  post,
+  isAbout,
+  siteTitle,
+  metaTags,
+  iconLinks,
+  fontLinks,
+  themeLinks,
+  labels,
+  sidebarHtml,
+  layoutClass,
+  stringifyPageData,
+  commentsConfig,
+  canonicalUrl,
+  rssLinks,
+  homeUrl,
+  aboutUrl,
+  blogUrl,
+  langSwitchMode,
+  navbarHtml,
+}) => ({
+  PAGE_TITLE: isAbout ? siteTitle : `${post.title} | ${siteTitle}`,
+  META_TAGS: metaTags,
+  RSS_LINKS: rssLinks,
+  ICON_LINKS: iconLinks,
+  FONT_LINKS: fontLinks,
+  THEME_LINKS: themeLinks,
+  NAVBAR: navbarHtml,
+  LANG: post.lang,
+  BODY_PAGE: isAbout ? 'about' : 'post',
+  HOME_URL: homeUrl,
+  ABOUT_URL: aboutUrl,
+  BLOG_URL: blogUrl,
+  NAV_ABOUT_LABEL: labels.navAbout,
+  NAV_BLOG_LABEL: labels.navBlog,
+  SITE_TITLE: siteTitle,
+  ARTICLE_CONTENT: buildArticleHtml(post, { isAbout }),
+  TOC: sidebarHtml,
+  TOC_LAYOUT_CLASS: layoutClass,
+  LANG_SWITCH_MODE: langSwitchMode,
+  PAGE_DATA: stringifyPageData(
+    buildPostPageData({
+      post,
+      isAbout,
+      labels,
+      commentsConfig,
+      canonicalUrl,
+    })
+  ),
+});
+
 const writeSinglePostPage = async ({
   post,
   buildDir,
@@ -58,62 +171,44 @@ const writeSinglePostPage = async ({
   labels,
   rssEnabled,
   stringifyPageData,
-  profileSidebarHtml,
+  authorData,
   commentsConfig,
 }) => {
   const canonicalUrl = buildUrl(siteUrl, post.url);
   const isAbout = post.translationKey === 'about';
-  const hasProfileSidebar = Boolean(profileSidebarHtml);
-  const sidebarHtml = isAbout ? profileSidebarHtml || '' : post.tocHtml;
-  const layoutClass = isAbout
-    ? hasProfileSidebar
-      ? 'has-profile'
-      : 'no-toc'
-    : post.tocLayoutClass;
-  const metaTags = buildMetaForPost({
+  const { sidebarHtml, layoutClass } = resolveSidebarLayout({
     post,
+    isAbout,
+    authorData,
+  });
+  const metaTags = buildPostMetaTags({ post, siteTitle, canonicalUrl, isAbout, siteUrl });
+  const renderContext = buildPostRenderContext({
+    post,
+    defaultLang,
+    aboutGroup,
+    labels,
     siteTitle,
-    canonicalUrl,
-    hreflangLinks: buildPostHreflangLinks({ post, isAbout, siteUrl }),
-    baseUrl: siteUrl,
-    buildUrl,
   });
-  const html = renderTemplate(postTemplate, {
-    PAGE_TITLE: isAbout ? siteTitle : `${post.title} | ${siteTitle}`,
-    META_TAGS: metaTags,
-    RSS_LINKS: rssEnabled
-      ? buildRssLinks({
-          lang: post.lang,
-          defaultLang,
-          siteUrl,
-          buildUrl,
-        })
-      : '',
-    ICON_LINKS: iconLinks,
-    FONT_LINKS: fontLinks,
-    THEME_LINKS: themeLinks,
-    LANG: post.lang,
-    BODY_PAGE: isAbout ? 'about' : 'post',
-    HOME_URL: buildHomeUrl(post.lang, defaultLang),
-    ABOUT_URL: buildAboutUrl(post.lang, defaultLang, aboutGroup),
-    BLOG_URL: buildListUrl(post.lang, defaultLang),
-    NAV_ABOUT_LABEL: labels.navAbout,
-    NAV_BLOG_LABEL: labels.navBlog,
-    SITE_TITLE: siteTitle,
-    ARTICLE_CONTENT: buildArticleHtml(post, { isAbout }),
-    TOC: sidebarHtml,
-    TOC_LAYOUT_CLASS: layoutClass,
-    LANG_SWITCH_MODE: post.langSwitchUrl ? 'toggle' : 'hidden',
-    PAGE_DATA: stringifyPageData(
-      buildPostPageData({
-        post,
-        isAbout,
-        labels,
-        commentsConfig,
-        canonicalUrl,
-      })
-    ),
-  });
+  const html = renderTemplate(
+    postTemplate,
+    buildPostTemplateValues({
+      post,
+      isAbout,
+      siteTitle,
+      metaTags,
+      iconLinks,
+      fontLinks,
+      themeLinks,
+      labels,
+      sidebarHtml,
+      layoutClass,
+      stringifyPageData,
+      commentsConfig,
+      canonicalUrl,
+      rssLinks: buildPostRssLinks({ rssEnabled, post, defaultLang, siteUrl }),
+      ...renderContext,
+    })
+  );
   await writePage(path.join(buildDir, stripLeadingSlash(post.url)), html);
   return { isAbout, lang: post.lang, html };
 };
