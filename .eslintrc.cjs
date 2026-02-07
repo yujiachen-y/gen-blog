@@ -8,12 +8,14 @@ module.exports = {
     ecmaVersion: 2022,
     sourceType: 'module',
   },
+  plugins: ['sonarjs'],
   rules: {
     'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
     'max-lines-per-function': ['error', { max: 70, skipBlankLines: true, skipComments: true }],
     complexity: ['error', 10],
     'max-depth': ['error', 4],
     'max-statements': ['error', 40],
+    'sonarjs/no-identical-functions': 'error',
   },
   extends: ['eslint:recommended'],
   overrides: [

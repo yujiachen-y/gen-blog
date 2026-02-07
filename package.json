@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "generate": "node ./scripts/generate.js",
-    "lint": "eslint .",
+    "lint": "npm run lint:eslint && npm run lint:duplicates",
+    "lint:eslint": "eslint .",
+    "lint:duplicates": "jscpd --pattern \"{scripts,theme}/**/*.js\" --ignore \"**/scripts/media/**\" --min-lines 5 --min-tokens 50 --threshold 0 --reporters console",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
@@ -23,9 +25,13 @@
   },
   "devDependencies": {
     "eslint": "^8.57.0",
+    "eslint-plugin-sonarjs": "^3.0.6",
     "husky": "^9.0.11",
+    "jscpd": "^4.0.8",
     "lint-staged": "^15.2.2",
-    "prettier": "^3.2.5"
+    "prettier": "^3.2.5",
+    "ts-api-utils": "^2.4.0",
+    "typescript": "^5.9.3"
   },
   "license": "MIT"
 }

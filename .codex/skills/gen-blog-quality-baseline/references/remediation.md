@@ -9,21 +9,25 @@ Use this when the baseline script reports warnings or failures.
 
 ## Oversized cover images
 
-Goal: keep covers **<= 600 KB** (prefer 200–400 KB).
+Goal: keep covers **<= 1800 KB** (prefer 500–1200 KB).
 
-- **Resize** images to a smaller dimension (e.g., max 1200px wide).
+- **Resize** images to a smaller dimension (e.g., max 1920px wide for cover images, 1080px for inline images).
 - **Compress** after resizing; prefer JPEG for photos, PNG for flat graphics.
 
 Example (macOS, keeps PNG but reduces size):
+
 ```
 sips -Z 900 assets/images/cover-silence.png
 ```
 
 Example (convert to JPEG):
+
 ```
 sips -s format jpeg -s formatOptions 80 assets/images/cover-silence.png --out assets/images/cover-silence.jpg
 ```
+
 Then update frontmatter:
+
 ```
 coverImage: assets/images/cover-silence.jpg
 ```

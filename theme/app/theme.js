@@ -7,6 +7,7 @@ import {
   languageStorageKey,
   saveScrollPosition,
 } from './state.js';
+import { normalizeLanguage } from './language.js';
 
 const themeModes = ['dark', 'light'];
 const themeOverrideTtlMs = 24 * 60 * 60 * 1000;
@@ -150,17 +151,6 @@ const initTheme = () => {
   }
   applyThemeMode(getSystemThemeMode());
   clearThemeOverrideExpiryTimer();
-};
-
-const normalizeLanguage = (value) => {
-  const raw = value ? String(value).toLowerCase().trim() : '';
-  if (raw.startsWith('zh')) {
-    return 'zh';
-  }
-  if (raw.startsWith('en')) {
-    return 'en';
-  }
-  return null;
 };
 
 const updateLangSwitchers = (lang) => {

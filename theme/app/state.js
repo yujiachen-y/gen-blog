@@ -1,19 +1,8 @@
+import { normalizeLanguage } from './language.js';
+
 const pageDataEl = document.getElementById('page-data');
 export const pageData = pageDataEl ? JSON.parse(pageDataEl.textContent || '{}') : {};
 export const uiLabels = pageData.labels || {};
-
-const normalizeLanguage = (value) => {
-  const raw = String(value || '')
-    .trim()
-    .toLowerCase();
-  if (raw.startsWith('zh')) {
-    return 'zh';
-  }
-  if (raw.startsWith('en')) {
-    return 'en';
-  }
-  return null;
-};
 
 const resolveAskAiQueryLanguage = () => {
   if (pageData.pageType !== 'ask-ai') {
