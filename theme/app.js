@@ -5,6 +5,7 @@ import { initComments } from './app/comments.js';
 import { initThemeControls } from './app/theme.js';
 import { initAskAiEntry } from './app/ask-ai-entry.js';
 import { initAskAiPage } from './app/ask-ai-page.js';
+import { initImagePreview } from './app/image-preview.js';
 
 const markTallImages = () => {
   if (pageData.pageType !== 'post') {
@@ -40,6 +41,7 @@ const init = async () => {
   restoreScrollPosition();
   initToc();
   markTallImages();
+  initImagePreview();
   initComments();
   window.addEventListener('beforeunload', saveScrollPosition);
 };
