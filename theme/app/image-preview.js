@@ -1,49 +1,27 @@
 import { pageData } from './state.js';
+import { animateOpenFromSource, buildModal } from './image-preview-modal.js';
 
 const PREVIEW_IMAGE_SELECTOR = '.article-body img, .article-cover img';
 
 const isPreviewEnabledPage = () => pageData.pageType === 'post' || pageData.pageType === 'about';
 
-const buildModal = () => {
-  const modal = document.createElement('div');
-  modal.className = 'image-preview-modal';
-  modal.setAttribute('role', 'dialog');
-  modal.setAttribute('aria-modal', 'true');
-  modal.setAttribute('aria-label', 'Image preview');
-  modal.setAttribute('aria-hidden', 'true');
-  modal.hidden = true;
+const resolveImageSrc = (image) => image.currentSrc || image.getAttribute('src') || '';
 
-  const closeButton = document.createElement('button');
-  closeButton.type = 'button';
-  closeButton.className = 'image-preview-close';
-  closeButton.setAttribute('aria-label', 'Close image preview');
-  closeButton.textContent = '×';
+const getImageAlt = (image) => String(image.getAttribute('alt') || '').trim();
 
-  const frame = document.createElement('div');
-  frame.className = 'image-preview-frame';
+const getImageLabel = (image) => getImageAlt(image) || 'Open image preview';
 
-  const image = document.createElement('img');
-  image.className = 'image-preview-image';
-  image.alt = '';
-
-  const caption = document.createElement('div');
-  caption.className = 'image-preview-caption';
-  caption.id = 'image-preview-caption';
+const renderCaption = (caption, alt) => {
+  if (alt) {
+    caption.textContent = alt;
+    caption.hidden = false;
+    return;
+  }
+  caption.textContent = '';
   caption.hidden = true;
-
-  frame.append(image, caption);
-  modal.append(closeButton, frame);
-  document.body.appendChild(modal);
-
-  return { modal, closeButton, image, caption };
 };
 
-const getImageLabel = (image) => {
-  const alt = String(image.getAttribute('alt') || '').trim();
-  return alt || 'Open image preview';
-};
-
-const bindPreviewTrigger = (image, openPreview) => {
+const bindPreviewTrigger = ({ image, openPreview }) => {
   image.classList.add('is-previewable');
   image.setAttribute('tabindex', '0');
   image.setAttribute('role', 'button');
@@ -51,7 +29,7 @@ const bindPreviewTrigger = (image, openPreview) => {
 
   image.addEventListener('click', (event) => {
     event.preventDefault();
-    openPreview(image);
+    void openPreview(image);
   });
 
   image.addEventListener('keydown', (event) => {
@@ -59,18 +37,140 @@ const bindPreviewTrigger = (image, openPreview) => {
       return;
     }
     event.preventDefault();
-    openPreview(image);
+    void openPreview(image);
   });
 };
 
-const renderCaption = (caption, alt) => {
-  if (!alt) {
-    caption.textContent = '';
-    caption.hidden = true;
+const createPreviewState = ({ images, modalRefs }) => ({
+  ...modalRefs,
+  images,
+  imageIndexMap: new Map(images.map((image, index) => [image, index])),
+  activeIndex: -1,
+  activeTrigger: null,
+});
+
+const updateNavState = (state) => {
+  const hasMultiple = state.images.length > 1;
+  state.prevButton.hidden = !hasMultiple;
+  state.nextButton.hidden = !hasMultiple;
+  state.prevButton.disabled = !hasMultiple || state.activeIndex <= 0;
+  state.nextButton.disabled = !hasMultiple || state.activeIndex >= state.images.length - 1;
+};
+
+const setPreviewContent = ({ state, image }) => {
+  const src = resolveImageSrc(image);
+  if (!src) {
+    return null;
+  }
+
+  state.previewImage.src = src;
+  const alt = getImageAlt(image);
+  state.previewImage.alt = alt;
+  renderCaption(state.caption, alt);
+  return src;
+};
+
+const showImageAt = async ({ state, index, animateFrom }) => {
+  if (index < 0 || index >= state.images.length) {
     return;
   }
-  caption.textContent = alt;
-  caption.hidden = false;
+  const image = state.images[index];
+  const src = setPreviewContent({ state, image });
+  if (!src) {
+    return;
+  }
+
+  state.activeIndex = index;
+  state.activeTrigger = image;
+  updateNavState(state);
+
+  if (animateFrom) {
+    await animateOpenFromSource({
+      sourceImage: animateFrom,
+      previewImage: state.previewImage,
+      src,
+    });
+  }
+};
+
+const closePreview = (state) => {
+  state.modal.classList.remove('is-open');
+  state.modal.setAttribute('aria-hidden', 'true');
+  state.modal.hidden = true;
+  document.body.classList.remove('image-preview-open');
+  state.previewImage.removeAttribute('src');
+  state.previewImage.alt = '';
+  state.activeIndex = -1;
+
+  if (state.activeTrigger) {
+    state.activeTrigger.focus();
+    state.activeTrigger = null;
+  }
+};
+
+const openPreview = async ({ state, image }) => {
+  const index = state.imageIndexMap.get(image);
+  if (typeof index !== 'number') {
+    return;
+  }
+
+  state.modal.hidden = false;
+  state.modal.setAttribute('aria-hidden', 'false');
+  state.modal.classList.add('is-open');
+  document.body.classList.add('image-preview-open');
+  await showImageAt({ state, index, animateFrom: image });
+  state.closeButton.focus();
+};
+
+const showPrevious = (state) => {
+  if (state.activeIndex > 0) {
+    void showImageAt({ state, index: state.activeIndex - 1 });
+  }
+};
+
+const showNext = (state) => {
+  if (state.activeIndex < state.images.length - 1) {
+    void showImageAt({ state, index: state.activeIndex + 1 });
+  }
+};
+
+const bindModalEvents = (state) => {
+  state.modal.addEventListener('click', (event) => {
+    if (event.target === state.modal) {
+      closePreview(state);
+    }
+  });
+  state.closeButton.addEventListener('click', () => closePreview(state));
+  state.prevButton.addEventListener('click', () => showPrevious(state));
+  state.nextButton.addEventListener('click', () => showNext(state));
+};
+
+const handleKeyboard = ({ state, event }) => {
+  if (!state.modal.classList.contains('is-open')) {
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    closePreview(state);
+    return;
+  }
+
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    showPrevious(state);
+    return;
+  }
+
+  if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    showNext(state);
+  }
+};
+
+const bindDocumentEvents = (state) => {
+  document.addEventListener('keydown', (event) => {
+    handleKeyboard({ state, event });
+  });
 };
 
 export const initImagePreview = () => {
@@ -83,54 +183,26 @@ export const initImagePreview = () => {
     return;
   }
 
-  const { modal, closeButton, image: previewImage, caption } = buildModal();
-  let activeTrigger = null;
-
-  const closePreview = () => {
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
-    modal.hidden = true;
-    document.body.classList.remove('image-preview-open');
-    previewImage.removeAttribute('src');
-    previewImage.alt = '';
-    if (activeTrigger) {
-      activeTrigger.focus();
-      activeTrigger = null;
-    }
-  };
-
-  const openPreview = (image) => {
-    const src = image.currentSrc || image.src;
-    if (!src) {
-      return;
-    }
-    activeTrigger = image;
-    previewImage.src = src;
-    const alt = String(image.getAttribute('alt') || '').trim();
-    previewImage.alt = alt;
-    renderCaption(caption, alt);
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
-    modal.classList.add('is-open');
-    document.body.classList.add('image-preview-open');
-    closeButton.focus();
-  };
-
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) {
-      closePreview();
-    }
+  const modalRefs = buildModal();
+  const state = createPreviewState({
+    images,
+    modalRefs: {
+      modal: modalRefs.modal,
+      closeButton: modalRefs.closeButton,
+      prevButton: modalRefs.prevButton,
+      nextButton: modalRefs.nextButton,
+      previewImage: modalRefs.image,
+      caption: modalRefs.caption,
+    },
   });
 
-  closeButton.addEventListener('click', () => {
-    closePreview();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && modal.classList.contains('is-open')) {
-      closePreview();
-    }
-  });
-
-  images.forEach((image) => bindPreviewTrigger(image, openPreview));
+  bindModalEvents(state);
+  bindDocumentEvents(state);
+  updateNavState(state);
+  images.forEach((image) =>
+    bindPreviewTrigger({
+      image,
+      openPreview: (currentImage) => openPreview({ state, image: currentImage }),
+    })
+  );
 };
