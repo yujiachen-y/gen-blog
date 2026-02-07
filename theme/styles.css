@@ -692,9 +692,31 @@ body[data-page='ask-ai'] .ask-ai-page {
 }
 
 .ask-ai-manual-summary-copy {
+  flex: 1 1 auto;
   min-width: 0;
   display: grid;
   gap: 0.3rem;
+}
+
+.ask-ai-manual-summary-trigger {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ask-ai-manual-summary-trigger:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.ask-ai-manual-summary-trigger:hover .ask-ai-manual-header {
+  color: var(--text-primary);
 }
 
 .ask-ai-manual-header {
@@ -2328,6 +2350,10 @@ body[data-page='ask-ai'] .ask-ai-page {
   .ask-ai-manual-summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .ask-ai-manual-summary-copy {
+    width: 100%;
   }
 
   .ask-ai-prompt-toggle {

@@ -46,6 +46,7 @@ const applyUiText = (root, text, params) => {
 
 const bindPromptToggle = (root, text) => {
   const section = root.querySelector('[data-prompt-section]');
+  const summaryButton = root.querySelector('[data-toggle-prompt-summary]');
   const toggleButton = root.querySelector('[data-toggle-prompt]');
   const toggleLabel = root.querySelector('[data-toggle-prompt-label]');
   const content = root.querySelector('[data-prompt-content]');
@@ -56,15 +57,24 @@ const bindPromptToggle = (root, text) => {
   const syncState = () => {
     const expanded = !section.classList.contains('is-collapsed');
     toggleLabel.textContent = text.promptPanel;
+    if (summaryButton) {
+      summaryButton.setAttribute('aria-label', text.promptPanel);
+      summaryButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
     toggleButton.setAttribute('aria-label', text.promptPanel);
     toggleButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     content.hidden = !expanded;
   };
 
-  toggleButton.addEventListener('click', () => {
+  const toggleSection = () => {
     section.classList.toggle('is-collapsed');
     syncState();
-  });
+  };
+
+  if (summaryButton) {
+    summaryButton.addEventListener('click', toggleSection);
+  }
+  toggleButton.addEventListener('click', toggleSection);
 
   syncState();
 };

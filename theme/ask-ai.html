@@ -70,17 +70,25 @@
 
           <div class="ask-ai-manual-card is-collapsed" data-prompt-section>
             <div class="ask-ai-manual-summary">
-              <div class="ask-ai-manual-summary-copy">
+              <button
+                class="ask-ai-manual-summary-copy ask-ai-manual-summary-trigger"
+                type="button"
+                data-toggle-prompt-summary
+                aria-expanded="false"
+                aria-controls="ask-ai-prompt-content"
+                aria-label="Prompt panel"
+              >
                 <p class="ask-ai-manual-header" data-prompt-title>Need to paste in other apps?</p>
                 <p class="ask-ai-manual-description" data-prompt-description>
                   Expand the prompt panel to copy full context or open Claude and Gemini.
                 </p>
-              </div>
+              </button>
               <button
                 class="ask-ai-prompt-toggle"
                 type="button"
                 data-toggle-prompt
                 aria-expanded="false"
+                aria-controls="ask-ai-prompt-content"
                 aria-label="Prompt panel"
               >
                 <span class="ask-ai-prompt-toggle-label" data-toggle-prompt-label
@@ -89,7 +97,12 @@
                 <span class="ask-ai-prompt-toggle-chevron" aria-hidden="true">⌄</span>
               </button>
             </div>
-            <div class="ask-ai-manual-content" data-prompt-content hidden>
+            <div
+              class="ask-ai-manual-content"
+              id="ask-ai-prompt-content"
+              data-prompt-content
+              hidden
+            >
               <div class="ask-ai-manual-topline">
                 <p class="ask-ai-manual-secondary-header" data-separator-label>or copy prompt to</p>
                 <div class="ask-ai-pill-group">
