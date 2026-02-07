@@ -1,3 +1,5 @@
+import { pageData } from './state.js';
+
 const normalizeLanguage = (value) => {
   const raw = String(value || '')
     .trim()
@@ -25,17 +27,22 @@ const normalizePath = (value, emptyValue) => {
 const normalizeSourcePath = (value) => normalizePath(value, '/');
 const normalizeMarkdownPath = (value) => normalizePath(value, null);
 
-const buildBasePromptLines = ({ language, llmsUrl }) =>
+const normalizeBlogTitle = (value) =>
+  String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildBasePromptLines = ({ language, llmsUrl, blogTitle }) =>
   language === 'zh'
     ? [
-        '请帮助用户更好地了解 Jiachen Yu。',
+        `请帮助用户更好地了解「${blogTitle || '这个博客'}」。`,
         `请将这个博客的 llms.txt 作为站点结构与内容入口：${llmsUrl}`,
         '在回答问题时，如果需要更多上下文，请阅读 llms.txt 中相关链接文章。',
         '这个博客的主要文章语言为中文和英文。',
         '回答时请严格遵循用户的指令与约束。',
       ]
     : [
-        'Please help the user better understand Jiachen Yu.',
+        `Please help the user better understand "${blogTitle || 'this blog'}".`,
         `Use this blog's llms.txt as the primary map of the site: ${llmsUrl}`,
         'Read relevant linked posts from llms.txt whenever you need more context to answer questions accurately.',
         'The main articles are written in Chinese and English.',
@@ -81,7 +88,8 @@ export const resolveUiLanguage = ({ params, fallbackLang, documentLang }) =>
 
 export const buildPrompt = ({ params, language, fallbackLang }) => {
   const llmsUrl = new URL('/llms.txt', window.location.origin).toString();
-  const lines = buildBasePromptLines({ language, llmsUrl });
+  const blogTitle = normalizeBlogTitle(pageData.siteTitle);
+  const lines = buildBasePromptLines({ language, llmsUrl, blogTitle });
   const postContextLine = buildPostContextLine({ params, language, fallbackLang });
   if (postContextLine) {
     lines.push(postContextLine);

@@ -5,23 +5,27 @@ const uiText = {
   en: {
     kicker: 'ASK AI',
     title: 'Ask anything about me.',
-    subtitle: 'Start a conversation with your favorite LLM, powered by context from my blog.',
-    viewPrompt: 'View prompt',
-    hidePrompt: 'Hide prompt',
+    subtitle: "It's done its homework. Ask away.",
+    subtitlePost: 'It just read "%TITLE%" — and everything else.',
+    badge: 'one-click',
+    separator: 'or copy prompt to',
     copy: 'Copy',
     copySuccess: 'Copied prompt.',
     copyFailure: 'Copy failed. Please copy manually.',
+    copying: 'Copying',
     copiedRedirect: 'Copied! Opening',
   },
   zh: {
     kicker: 'ASK AI',
     title: '让 AI 替你翻翻我的博客。',
-    subtitle: '挑一个你顺手的 LLM，带上这里的上下文，随便聊。',
-    viewPrompt: '看看 Prompt 写了啥',
-    hidePrompt: '收起 Prompt',
+    subtitle: '如你所料，这个网站的信息它都知道。',
+    subtitlePost: '它刚读完《%TITLE%》——还有我所有其他文章。',
+    badge: '一键直达',
+    separator: '或复制 prompt 到',
     copy: '复制',
     copySuccess: '已复制，去粘贴吧。',
     copyFailure: '复制失败，请手动复制。',
+    copying: '正在拷贝',
     copiedRedirect: '已复制！正在打开',
   },
 };
@@ -49,17 +53,24 @@ const providers = {
   },
 };
 
-const applyUiText = (root, text) => {
+const applyUiText = (root, text, params) => {
   const kicker = root.querySelector('[data-ask-ai-kicker]');
   const title = root.querySelector('[data-ask-ai-title]');
   const subtitle = root.querySelector('[data-ask-ai-subtitle]');
-  const toggleLabel = root.querySelector('[data-prompt-toggle-label]');
+  const badgeLabel = root.querySelector('[data-badge-label]');
+  const separatorLabel = root.querySelector('[data-separator-label]');
   const copyButton = root.querySelector('[data-copy-prompt]');
 
   if (kicker) kicker.textContent = text.kicker;
   if (title) title.textContent = text.title;
-  if (subtitle) subtitle.textContent = text.subtitle;
-  if (toggleLabel) toggleLabel.textContent = text.viewPrompt;
+  if (subtitle) {
+    const postTitle = params.get('from') === 'post' ? (params.get('title') || '').trim() : '';
+    subtitle.textContent = postTitle
+      ? text.subtitlePost.replace('%TITLE%', postTitle)
+      : text.subtitle;
+  }
+  if (badgeLabel) badgeLabel.textContent = text.badge;
+  if (separatorLabel) separatorLabel.textContent = text.separator;
   if (copyButton) copyButton.textContent = text.copy;
 };
 
@@ -109,25 +120,6 @@ const createFeedbackController = (root) => {
   };
 };
 
-const bindPromptToggle = (root, text) => {
-  const toggle = root.querySelector('[data-prompt-toggle]');
-  const disclosure = root.querySelector('.ask-ai-disclosure');
-  const label = root.querySelector('[data-prompt-toggle-label]');
-  if (!toggle || !disclosure) {
-    return;
-  }
-  disclosure.classList.add('is-open');
-  if (label) {
-    label.textContent = text.hidePrompt;
-  }
-  toggle.addEventListener('click', () => {
-    const isOpen = disclosure.classList.toggle('is-open');
-    if (label) {
-      label.textContent = isOpen ? text.hidePrompt : text.viewPrompt;
-    }
-  });
-};
-
 const bindCopyPrompt = (root, prompt, text) => {
   const copyButton = root.querySelector('[data-copy-prompt]');
   if (!copyButton) {
@@ -163,21 +155,45 @@ const bindProviders = (root, prompt, text) => {
         return;
       }
       const originalLabel = pill.querySelector('.ask-ai-pill-label');
+      const brandLockup = pill.querySelector('.ask-ai-brand-lockup');
+      const providerName = (pill.getAttribute('aria-label') || providerKey).trim();
+      let statusLabel = originalLabel;
+      let createdStatusLabel = false;
       const originalText = originalLabel ? originalLabel.textContent : '';
+
+      if (!statusLabel) {
+        statusLabel = document.createElement('span');
+        statusLabel.className = 'ask-ai-provider-status';
+        pill.appendChild(statusLabel);
+        createdStatusLabel = true;
+      }
+      if (brandLockup) {
+        brandLockup.classList.add('is-hidden');
+      }
+      statusLabel.textContent = `${text.copying}…`;
+      statusLabel.classList.add('is-visible');
 
       pill.classList.add('is-copied');
       const copied = await copyText(prompt);
 
-      if (copied && originalLabel) {
-        originalLabel.textContent = `${text.copiedRedirect} ${originalText}…`;
+      if (copied && statusLabel) {
+        statusLabel.textContent = `${text.copiedRedirect} ${providerName}…`;
       }
       feedbackController.show(copied ? text.copySuccess : text.copyFailure);
 
       window.setTimeout(() => {
         window.open(provider.url(prompt), '_blank', 'noopener,noreferrer');
         pill.classList.remove('is-copied');
-        if (originalLabel) {
-          originalLabel.textContent = originalText;
+        if (brandLockup) {
+          brandLockup.classList.remove('is-hidden');
+        }
+        if (statusLabel) {
+          statusLabel.classList.remove('is-visible');
+        }
+        if (createdStatusLabel && statusLabel && statusLabel.parentNode === pill) {
+          pill.removeChild(statusLabel);
+        } else if (statusLabel) {
+          statusLabel.textContent = originalText;
         }
       }, 800);
     });
@@ -200,11 +216,10 @@ export const initAskAiPage = () => {
   const prompt = buildPrompt({ params, language, fallbackLang: pageData.lang });
   const promptOutput = root.querySelector('[data-prompt-output]');
 
-  applyUiText(root, text);
+  applyUiText(root, text, params);
   if (promptOutput) {
     promptOutput.textContent = prompt;
   }
-  bindPromptToggle(root, text);
   bindCopyPrompt(root, prompt, text);
   bindProviders(root, prompt, text);
 };

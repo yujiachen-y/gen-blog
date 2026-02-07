@@ -5,9 +5,10 @@ import { writePage } from '../shared/fs-utils.js';
 import { renderTemplate } from '../shared/templates.js';
 import { buildAboutUrl, buildHomeUrl, buildListUrl, buildUrl } from '../shared/paths.js';
 
-const buildAskAiPageData = ({ lang, labels }) => ({
+const buildAskAiPageData = ({ lang, labels, siteTitle }) => ({
   pageType: 'ask-ai',
   lang,
+  siteTitle,
   langSwitchUrl: null,
   langSwitcherMode: 'toggle',
   labels: {
@@ -64,6 +65,7 @@ export const writeAskAiPage = async ({
       buildAskAiPageData({
         lang: pageLang,
         labels,
+        siteTitle,
       })
     ),
   });
