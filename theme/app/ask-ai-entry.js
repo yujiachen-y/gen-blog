@@ -77,6 +77,7 @@ export const initAskAiEntry = () => {
     return;
   }
 
+  entry.classList.toggle('is-active', pageData.pageType === 'ask-ai');
   entry.setAttribute('href', resolveEntryHref());
   entry.removeAttribute('target');
   entry.removeAttribute('rel');
