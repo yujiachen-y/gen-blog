@@ -1,5 +1,5 @@
 import { pageData } from './state.js';
-import { animateOpenFromSource, buildModal } from './image-preview-modal.js';
+import { animateCloseToSource, animateOpenFromSource, buildModal } from './image-preview-modal.js';
 
 const PREVIEW_IMAGE_SELECTOR = '.article-body img, .article-cover img';
 
@@ -47,6 +47,7 @@ const createPreviewState = ({ images, modalRefs }) => ({
   imageIndexMap: new Map(images.map((image, index) => [image, index])),
   activeIndex: -1,
   activeTrigger: null,
+  isClosing: false,
 });
 
 const updateNavState = (state) => {
@@ -93,8 +94,9 @@ const showImageAt = async ({ state, index, animateFrom }) => {
   }
 };
 
-const closePreview = (state) => {
+const finalizeClose = (state) => {
   state.modal.classList.remove('is-open');
+  state.modal.classList.remove('is-closing');
   state.modal.setAttribute('aria-hidden', 'true');
   state.modal.hidden = true;
   document.body.classList.remove('image-preview-open');
@@ -108,7 +110,24 @@ const closePreview = (state) => {
   }
 };
 
+const closePreview = async (state) => {
+  if (state.isClosing || !state.modal.classList.contains('is-open')) {
+    return;
+  }
+  state.isClosing = true;
+  state.modal.classList.add('is-closing');
+  await animateCloseToSource({
+    sourceImage: state.activeTrigger,
+    previewImage: state.previewImage,
+  });
+  finalizeClose(state);
+  state.isClosing = false;
+};
+
 const openPreview = async ({ state, image }) => {
+  if (state.isClosing) {
+    return;
+  }
   const index = state.imageIndexMap.get(image);
   if (typeof index !== 'number') {
     return;
@@ -134,13 +153,20 @@ const showNext = (state) => {
   }
 };
 
+const shouldCloseByClick = (event) => {
+  if (!(event.target instanceof Element)) {
+    return false;
+  }
+  return !event.target.closest('.image-preview-image, .image-preview-nav, .image-preview-close');
+};
+
 const bindModalEvents = (state) => {
   state.modal.addEventListener('click', (event) => {
-    if (event.target === state.modal) {
-      closePreview(state);
+    if (shouldCloseByClick(event)) {
+      void closePreview(state);
     }
   });
-  state.closeButton.addEventListener('click', () => closePreview(state));
+  state.closeButton.addEventListener('click', () => void closePreview(state));
   state.prevButton.addEventListener('click', () => showPrevious(state));
   state.nextButton.addEventListener('click', () => showNext(state));
 };
@@ -151,7 +177,7 @@ const handleKeyboard = ({ state, event }) => {
   }
 
   if (event.key === 'Escape') {
-    closePreview(state);
+    void closePreview(state);
     return;
   }
 

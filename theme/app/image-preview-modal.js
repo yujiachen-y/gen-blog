@@ -84,6 +84,65 @@ const setGhostLayout = ({ ghost, rect, borderRadius }) => {
   });
 };
 
+const createGhostImage = (src) => {
+  const ghost = document.createElement('img');
+  ghost.src = src;
+  ghost.alt = '';
+  ghost.className = 'image-preview-ghost';
+  return ghost;
+};
+
+const animateGhostBetweenRects = async ({ ghost, fromRect, toRect, fromRadius, toRadius }) => {
+  const animation = ghost.animate(
+    [
+      {
+        top: `${fromRect.top}px`,
+        left: `${fromRect.left}px`,
+        width: `${fromRect.width}px`,
+        height: `${fromRect.height}px`,
+        borderRadius: fromRadius,
+      },
+      {
+        top: `${toRect.top}px`,
+        left: `${toRect.left}px`,
+        width: `${toRect.width}px`,
+        height: `${toRect.height}px`,
+        borderRadius: toRadius,
+      },
+    ],
+    {
+      duration: PREVIEW_OPEN_DURATION_MS,
+      easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+      fill: 'forwards',
+    }
+  );
+  await animation.finished.catch(() => null);
+};
+
+const runGhostTransition = async ({
+  previewImage,
+  src,
+  fromRect,
+  toRect,
+  fromRadius,
+  toRadius,
+}) => {
+  const ghost = createGhostImage(src);
+  setGhostLayout({ ghost, rect: fromRect, borderRadius: fromRadius });
+
+  previewImage.classList.add('is-hidden-during-open');
+  document.body.appendChild(ghost);
+  await animateGhostBetweenRects({
+    ghost,
+    fromRect,
+    toRect,
+    fromRadius,
+    toRadius,
+  });
+  ghost.remove();
+  previewImage.classList.remove('is-hidden-during-open');
+};
+
 export const animateOpenFromSource = async ({ sourceImage, previewImage, src }) => {
   if (reduceMotionQuery && reduceMotionQuery.matches) {
     return;
@@ -101,40 +160,66 @@ export const animateOpenFromSource = async ({ sourceImage, previewImage, src }) 
     return;
   }
 
-  const ghost = document.createElement('img');
-  ghost.src = src;
-  ghost.alt = '';
-  ghost.className = 'image-preview-ghost';
   const sourceRadius = window.getComputedStyle(sourceImage).borderRadius || '6px';
   const targetRadius = window.getComputedStyle(previewImage).borderRadius || '10px';
-  setGhostLayout({ ghost, rect: sourceRect, borderRadius: sourceRadius });
+  await runGhostTransition({
+    previewImage,
+    src,
+    fromRect: sourceRect,
+    toRect: targetRect,
+    fromRadius: sourceRadius,
+    toRadius: targetRadius,
+  });
+};
 
-  previewImage.classList.add('is-hidden-during-open');
-  document.body.appendChild(ghost);
-  const animation = ghost.animate(
-    [
-      {
-        top: `${sourceRect.top}px`,
-        left: `${sourceRect.left}px`,
-        width: `${sourceRect.width}px`,
-        height: `${sourceRect.height}px`,
-        borderRadius: sourceRadius,
-      },
-      {
-        top: `${targetRect.top}px`,
-        left: `${targetRect.left}px`,
-        width: `${targetRect.width}px`,
-        height: `${targetRect.height}px`,
-        borderRadius: targetRadius,
-      },
-    ],
-    {
-      duration: PREVIEW_OPEN_DURATION_MS,
-      easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
-      fill: 'forwards',
-    }
-  );
-  await animation.finished.catch(() => null);
-  ghost.remove();
-  previewImage.classList.remove('is-hidden-during-open');
+const canAnimateCloseTarget = (targetRect) =>
+  targetRect.width > 0 &&
+  targetRect.height > 0 &&
+  targetRect.bottom >= 0 &&
+  targetRect.top <= window.innerHeight &&
+  targetRect.right >= 0 &&
+  targetRect.left <= window.innerWidth;
+
+const resolveCloseAnimationContext = async ({ sourceImage, previewImage }) => {
+  if (!sourceImage || (reduceMotionQuery && reduceMotionQuery.matches)) {
+    return null;
+  }
+
+  const src = previewImage.currentSrc || previewImage.getAttribute('src') || '';
+  if (!src) {
+    return null;
+  }
+
+  await waitForImageReady(previewImage);
+  await nextFrame();
+  const fromRect = previewImage.getBoundingClientRect();
+  const toRect = sourceImage.getBoundingClientRect();
+  if (!fromRect.width || !fromRect.height || !canAnimateCloseTarget(toRect)) {
+    return null;
+  }
+  return { src, fromRect, toRect };
+};
+
+const runCloseAnimation = async ({ sourceImage, previewImage, context }) => {
+  const { src, fromRect, toRect } = context;
+
+  const fromRadius = window.getComputedStyle(previewImage).borderRadius || '10px';
+  const toRadius = window.getComputedStyle(sourceImage).borderRadius || '6px';
+  await runGhostTransition({
+    previewImage,
+    src,
+    fromRect,
+    toRect,
+    fromRadius,
+    toRadius,
+  });
+};
+
+export const animateCloseToSource = async ({ sourceImage, previewImage }) => {
+  const context = await resolveCloseAnimationContext({ sourceImage, previewImage });
+  if (!context) {
+    return false;
+  }
+  await runCloseAnimation({ sourceImage, previewImage, context });
+  return true;
 };

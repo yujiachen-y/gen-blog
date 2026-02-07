@@ -1913,6 +1913,11 @@ body.image-preview-open {
   pointer-events: auto;
 }
 
+.image-preview-modal.is-closing {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .image-preview-frame {
   width: min(96vw, 1800px);
   max-height: calc(100vh - 2.5rem);
