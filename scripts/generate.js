@@ -37,6 +37,7 @@ import {
   writeListPages,
   writeSitemapAndRobots,
 } from './generator/generate-list-output.js';
+import { createImageOptions } from './generator/image-options.js';
 
 const args = process.argv.slice(2);
 
@@ -488,16 +489,7 @@ const resolveLanguageContext = (posts) => {
 const createImagePipeline = async (buildDir) => {
   const imageCache = new Map();
   const imageIndex = await buildImageIndex(inputDir, IMAGE_EXTS);
-  const imageOptions = {
-    outputBase: path.join(buildDir, 'assets'),
-    sourceBase: inputDir,
-    publicBase: '/assets',
-    maxWidth: 680,
-    minWidth: 240,
-    maxBytes: 600 * 1024,
-    jpegQuality: 70,
-    webpQuality: 70,
-  };
+  const { inlineImageOptions, coverImageOptions } = createImageOptions({ buildDir, inputDir });
   const imageLimiter = createConcurrencyLimiter(IMAGE_CONCURRENCY);
   const processImageTask = (input, options) => imageLimiter(() => processImage(input, options));
   const processImageSourceTask = (src, options) =>
@@ -505,7 +497,8 @@ const createImagePipeline = async (buildDir) => {
   return {
     imageCache,
     imageIndex,
-    imageOptions,
+    inlineImageOptions,
+    coverImageOptions,
     processImageTask,
     processImageSourceTask,
   };
@@ -576,7 +569,7 @@ const processCoverPicture = async ({ post, allowRemoteImages, imagePipeline }) =
       coverRelativePath,
       allowRemoteImages,
       imageCache: imagePipeline.imageCache,
-      imageOptions: imagePipeline.imageOptions,
+      imageOptions: imagePipeline.coverImageOptions,
       processImageSourceTask: imagePipeline.processImageSourceTask,
     });
   }
@@ -584,7 +577,7 @@ const processCoverPicture = async ({ post, allowRemoteImages, imagePipeline }) =
     post,
     coverRelativePath,
     imageCache: imagePipeline.imageCache,
-    imageOptions: imagePipeline.imageOptions,
+    imageOptions: imagePipeline.coverImageOptions,
     processImageTask: imagePipeline.processImageTask,
   });
 };
@@ -599,7 +592,7 @@ const processSinglePost = async ({ post, allowRemoteImages, imagePipeline }) => 
     content: post.content,
     filePath: post.sourcePath,
     imageCache: imagePipeline.imageCache,
-    imageOptions: imagePipeline.imageOptions,
+    imageOptions: imagePipeline.inlineImageOptions,
     imageIndex: imagePipeline.imageIndex,
     buildImagePath: (index) => buildPostImagePath(post, index),
     allowRemoteImages,

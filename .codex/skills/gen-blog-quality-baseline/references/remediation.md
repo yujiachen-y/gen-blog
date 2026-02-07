@@ -44,7 +44,7 @@ coverImage: assets/images/cover-silence.jpg
 - Avoid large inline HTML in index.
 - Compress cover images.
 
-## Dist size too large (> 50 MB)
+## Dist size too large (> 120 MB)
 
 - Remove unused assets.
 - Compress images.

@@ -1,3 +1,8 @@
 dist/
 node_modules/
 .sample-markdown/
+!.codex/
+!.codex/skills/
+!.codex/skills/gen-blog-quality-baseline/
+!.codex/skills/gen-blog-quality-baseline/scripts/
+!.codex/skills/gen-blog-quality-baseline/scripts/*.js

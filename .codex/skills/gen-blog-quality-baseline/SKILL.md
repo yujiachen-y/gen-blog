@@ -33,7 +33,7 @@ Optional overrides:
 node .codex/skills/gen-blog-quality-baseline/scripts/quality_baseline.js \
   --dist dist \
   --max-home-kb 1024 \
-  --max-total-mb 50 \
+  --max-total-mb 120 \
   --max-cover-kb 1800 \
   --max-html-mb 15 \
   --max-page-kb 400
