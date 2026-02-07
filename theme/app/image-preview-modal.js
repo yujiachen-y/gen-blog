@@ -22,7 +22,10 @@ const createNavButton = ({ className, label, symbol }) => {
   button.type = 'button';
   button.className = className;
   button.setAttribute('aria-label', label);
-  button.textContent = symbol;
+  const icon = document.createElement('span');
+  icon.className = 'image-preview-nav-icon';
+  icon.textContent = symbol;
+  button.append(icon);
   return button;
 };
 

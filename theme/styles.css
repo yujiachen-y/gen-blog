@@ -1944,26 +1944,33 @@ body.image-preview-open {
 
 .image-preview-nav {
   position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 1rem;
   border: 0;
   width: clamp(2.2rem, 2.5vw, 2.8rem);
   height: clamp(2.2rem, 2.5vw, 2.8rem);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
-  font-size: 1.85rem;
-  line-height: 1;
   cursor: pointer;
   z-index: 1215;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .image-preview-nav-prev {
-  left: clamp(0.65rem, 1.2vw, 1rem);
+  left: calc(50% - 3.3rem);
 }
 
 .image-preview-nav-next {
-  right: clamp(0.65rem, 1.2vw, 1rem);
+  right: calc(50% - 3.3rem);
+}
+
+.image-preview-nav-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  transform: translateY(-0.08em);
 }
 
 .image-preview-nav:hover {
@@ -2015,17 +2022,15 @@ body.image-preview-open {
 
 @media (max-width: 720px) {
   .image-preview-nav {
-    top: auto;
     bottom: 0.9rem;
-    transform: none;
   }
 
   .image-preview-nav-prev {
-    left: calc(50% - 3rem);
+    left: calc(50% - 3.15rem);
   }
 
   .image-preview-nav-next {
-    right: calc(50% - 3rem);
+    right: calc(50% - 3.15rem);
   }
 
   .image-preview-caption {
