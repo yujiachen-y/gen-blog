@@ -32,36 +32,6 @@ const markTallImages = () => {
   });
 };
 
-const updateActiveNav = () => {
-  const navLinks = document.querySelectorAll('.nav-link-button');
-  navLinks.forEach((link) => {
-    let isActive = false;
-    const navType = link.dataset.nav;
-    if (pageData.pageType === 'about' && navType === 'about') {
-      isActive = true;
-    } else if (
-      (pageData.pageType === 'list' || pageData.pageType === 'post') &&
-      navType === 'blog'
-    ) {
-      isActive = true;
-    }
-
-    // Fallback: Check strictly by URL if pageType logic didn't match (e.g. unknown pages)
-    if (!isActive) {
-      try {
-        const linkPath = new URL(link.href, window.location.origin).pathname;
-        if (window.location.pathname === linkPath) {
-          isActive = true;
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    link.classList.toggle('active', isActive);
-  });
-};
-
 const init = async () => {
   initThemeControls();
   initAskAiEntry();
@@ -70,7 +40,6 @@ const init = async () => {
   restoreScrollPosition();
   initToc();
   markTallImages();
-  updateActiveNav();
   initComments();
   window.addEventListener('beforeunload', saveScrollPosition);
 };

@@ -1,7 +1,5 @@
 import { pageData } from './state.js';
 
-const ASK_AI_ENTRY_SEEN_KEY = 'gen-blog-ask-ai-entry-seen';
-
 const normalizeLanguage = (value) => {
   const raw = String(value || '')
     .trim()
@@ -13,22 +11,6 @@ const normalizeLanguage = (value) => {
     return 'en';
   }
   return null;
-};
-
-const readSeenState = () => {
-  try {
-    return localStorage.getItem(ASK_AI_ENTRY_SEEN_KEY) === '1';
-  } catch (error) {
-    return false;
-  }
-};
-
-const writeSeenState = () => {
-  try {
-    localStorage.setItem(ASK_AI_ENTRY_SEEN_KEY, '1');
-  } catch (error) {
-    // ignore storage failures
-  }
 };
 
 const resolveArticleTitle = () => {
@@ -86,26 +68,8 @@ const resolveBackUrl = () => {
   return '/';
 };
 
-const prepareEntryForAskAiPage = (entry) => {
-  entry.classList.add('is-active');
-  entry.setAttribute('href', resolveBackUrl());
-  entry.removeAttribute('target');
-  entry.removeAttribute('rel');
-};
-
-const applyEntryState = (entry) => {
-  if (!readSeenState()) {
-    entry.classList.add('is-primed');
-  }
-};
-
-const bindEntryClick = (entry) => {
-  entry.addEventListener('click', () => {
-    writeSeenState();
-    entry.classList.remove('is-primed');
-    entry.classList.add('is-acknowledged');
-  });
-};
+const resolveEntryHref = () =>
+  pageData.pageType === 'ask-ai' ? resolveBackUrl() : buildAskAiUrl();
 
 export const initAskAiEntry = () => {
   const entry = document.querySelector('[data-ask-ai-entry]');
@@ -113,12 +77,7 @@ export const initAskAiEntry = () => {
     return;
   }
 
-  if (pageData.pageType === 'ask-ai') {
-    prepareEntryForAskAiPage(entry);
-    return;
-  }
-
-  entry.setAttribute('href', buildAskAiUrl());
-  applyEntryState(entry);
-  bindEntryClick(entry);
+  entry.setAttribute('href', resolveEntryHref());
+  entry.removeAttribute('target');
+  entry.removeAttribute('rel');
 };
