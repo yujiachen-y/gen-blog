@@ -34,6 +34,7 @@ const buildPostPageData = ({ post, isAbout, labels, commentsConfig, canonicalUrl
   lang: post.lang,
   langSwitchUrl: post.langSwitchUrl || null,
   langSwitcherMode: post.langSwitchUrl ? 'toggle' : 'hidden',
+  markdownUrl: isAbout ? null : post.markdownUrl || null,
   labels: {
     navAbout: labels.navAbout,
     navBlog: labels.navBlog,

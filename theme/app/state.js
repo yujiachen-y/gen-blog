@@ -2,6 +2,31 @@ const pageDataEl = document.getElementById('page-data');
 export const pageData = pageDataEl ? JSON.parse(pageDataEl.textContent || '{}') : {};
 export const uiLabels = pageData.labels || {};
 
+const normalizeLanguage = (value) => {
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
+  if (raw.startsWith('zh')) {
+    return 'zh';
+  }
+  if (raw.startsWith('en')) {
+    return 'en';
+  }
+  return null;
+};
+
+const resolveAskAiQueryLanguage = () => {
+  if (pageData.pageType !== 'ask-ai') {
+    return null;
+  }
+  const params = new URLSearchParams(window.location.search);
+  return normalizeLanguage(params.get('ui')) || null;
+};
+
+const resolvedInitialLanguage =
+  resolveAskAiQueryLanguage() || normalizeLanguage(pageData.lang) || 'en';
+pageData.lang = resolvedInitialLanguage;
+
 export const grid = document.getElementById('grid-container');
 export const filterPills = document.getElementById('filter-pills');
 export const themeSwitchers = Array.from(document.querySelectorAll('[data-theme-switcher]'));
@@ -18,7 +43,7 @@ export const state = {
   filterIndex: [],
   categories: [],
   initialPosts: pageData.posts || [],
-  language: pageData.lang || 'en',
+  language: resolvedInitialLanguage,
   searchQuery: '',
   fuseInstance: null,
 };

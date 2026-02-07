@@ -31,6 +31,7 @@ import {
 } from './shared/paths.js';
 import { THEME_CONSTANTS } from '../theme.constants.js';
 import { writeAboutAliases, writePostPages, writeRssFiles } from './generator/generate-output.js';
+import { writeAskAiPage } from './generator/generate-ask-ai-output.js';
 import {
   finalizeOutputDirectory,
   writeListPages,
@@ -780,9 +781,10 @@ const run = async () => {
     configDir: config.defaultConfigDir,
     buildDir,
   });
-  const [listTemplate, postTemplate] = await Promise.all([
+  const [listTemplate, postTemplate, askAiTemplate] = await Promise.all([
     readTemplate(themeDir, 'index.html'),
     readTemplate(themeDir, 'post.html'),
+    readTemplate(themeDir, 'ask-ai.html'),
   ]);
   const posts = await loadPosts(inputDir);
   const languageContext = resolveLanguageContext(posts);
@@ -874,11 +876,25 @@ const run = async () => {
     rssEnabled,
     stringifyPageData,
   });
+  await writeAskAiPage({
+    askAiTemplate,
+    buildDir,
+    siteTitle: config.siteTitle,
+    siteUrl: config.siteUrl,
+    defaultLang: languageContext.defaultLang,
+    aboutGroup: languageContext.aboutGroup,
+    labels: config.labels,
+    iconLinks: config.iconLinks,
+    fontLinks: config.fontLinks,
+    themeLinks: config.themeLinks,
+    stringifyPageData,
+  });
   await writeSitemapAndRobots({
     siteUrl: config.siteUrl,
     postPages,
     listDataByLang,
     defaultLang: languageContext.defaultLang,
+    extraPaths: ['/ask-ai/'],
     buildDir,
   });
   await finalizeOutputDirectory({ preserveOutput, buildDir, outputDir });

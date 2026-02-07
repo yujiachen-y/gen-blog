@@ -189,6 +189,18 @@ const setLanguagePreference = (lang) => {
   }
 };
 
+const buildAskAiLanguageSwitchUrl = (targetLang) => {
+  const params = new URLSearchParams(window.location.search);
+  params.set('ui', targetLang);
+  if (!params.get('from')) {
+    params.set('from', 'base');
+  }
+  if (!params.get('src')) {
+    params.set('src', window.location.pathname || '/ask-ai/');
+  }
+  return `/ask-ai/?${params.toString()}`;
+};
+
 const toggleThemeMode = () => {
   const currentThemeMode =
     normalizeThemeMode(document.documentElement.getAttribute('data-theme')) || getSystemThemeMode();
@@ -227,6 +239,10 @@ const initLangSwitchers = () => {
       const nextLang = state.language === 'zh' ? 'en' : 'zh';
       saveScrollPosition();
       setLanguagePreference(nextLang);
+      if (pageData.pageType === 'ask-ai') {
+        window.location.href = buildAskAiLanguageSwitchUrl(nextLang);
+        return;
+      }
       if (pageData.langSwitchUrl) {
         window.location.href = pageData.langSwitchUrl;
       }

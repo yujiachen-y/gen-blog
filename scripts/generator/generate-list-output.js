@@ -174,12 +174,14 @@ export const writeSitemapAndRobots = async ({
   postPages,
   listDataByLang,
   defaultLang,
+  extraPaths = [],
   buildDir,
 }) => {
   if (!siteUrl) return;
   const urls = [
     ...postPages.map((post) => buildUrl(siteUrl, post.url)),
     ...listDataByLang.map((group) => buildUrl(siteUrl, buildListUrl(group.lang, defaultLang))),
+    ...extraPaths.map((extraPath) => buildUrl(siteUrl, extraPath)),
   ];
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map((url) => `  <url><loc>${url}</loc></url>`)

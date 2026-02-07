@@ -56,6 +56,14 @@ export const buildNavbarHtml = ({
           </span>
         </button>
       </div>
+      <a
+        class="ask-ai-entry"
+        href="/ask-ai/"
+        data-ask-ai-entry
+        aria-label="Open Ask AI"
+      >
+        <span class="ask-ai-entry-label">Ask AI</span>
+      </a>
     </div>
   </div>
 </nav>

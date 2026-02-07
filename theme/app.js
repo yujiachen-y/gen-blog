@@ -3,6 +3,8 @@ import { initFilters } from './app/filters.js';
 import { initToc } from './app/toc.js';
 import { initComments } from './app/comments.js';
 import { initThemeControls } from './app/theme.js';
+import { initAskAiEntry } from './app/ask-ai-entry.js';
+import { initAskAiPage } from './app/ask-ai-page.js';
 
 const markTallImages = () => {
   if (pageData.pageType !== 'post') {
@@ -62,6 +64,8 @@ const updateActiveNav = () => {
 
 const init = async () => {
   initThemeControls();
+  initAskAiEntry();
+  initAskAiPage();
   await initFilters();
   restoreScrollPosition();
   initToc();
