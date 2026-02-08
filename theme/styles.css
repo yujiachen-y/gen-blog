@@ -2622,6 +2622,133 @@ body.image-preview-open {
 
 /* ---------- Comments ---------- */
 
+.citation-section {
+  border-top: 1px solid var(--card-border);
+  padding-top: 2.1rem;
+  margin-top: 2.1rem;
+}
+
+.citation-section:empty {
+  display: none;
+}
+
+.citation-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.citation-label {
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.citation-toggle {
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.37rem 0.72rem;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.citation-toggle:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.citation-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.citation-blocks[hidden] {
+  display: none;
+}
+
+.citation-block {
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--card-bg-hover);
+  padding: 0.7rem;
+}
+
+.citation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+.citation-format {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+}
+
+.citation-copy {
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.34rem 0.72rem;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.citation-copy:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.citation-copy.is-copied {
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+  color: var(--bg-color);
+}
+
+.citation-code {
+  margin: 0;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.48;
+  color: var(--code-text);
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.66rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.citation-section + .comment-section {
+  margin-top: 1.9rem;
+}
+
 .comment-section {
   border-top: 1px solid var(--card-border);
   padding: 3rem 0 2.5rem;
@@ -2894,6 +3021,15 @@ body.image-preview-open {
 }
 
 @media (max-width: 600px) {
+  .citation-toolbar {
+    gap: 0.5rem;
+  }
+
+  .citation-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .comment-form-row {
     flex-direction: column;
   }

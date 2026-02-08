@@ -3,12 +3,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { processImage, processImageSource } from './images.js';
 import { buildRssFeed } from './content/rss.js';
+import { buildLlmsTxt } from './content/llms.js';
 import { copyThemeAssets } from './media/assets.js';
 import { buildPostGroups, loadPosts } from './content/content.js';
 import { buildImageIndex, resolveImageFromIndex } from './media/image-index.js';
 import { isExternalAsset, isRemoteAsset, resolveLocalAsset } from './media/asset-resolver.js';
 import { renderMarkdownWithImages } from './content/markdown-renderer.js';
-import { preprocessObsidianContent } from './obsidian.js';
 import {
   ensureDir,
   pathExists,
@@ -26,7 +26,6 @@ import {
   buildPostImagePath,
   buildPostMarkdownPath,
   buildPostUrl,
-  stripLeadingSlash,
   buildUrl,
 } from './shared/paths.js';
 import { THEME_CONSTANTS } from '../theme.constants.js';
@@ -38,6 +37,7 @@ import {
   writeSitemapAndRobots,
 } from './generator/generate-list-output.js';
 import { createImageOptions } from './generator/image-options.js';
+import { writeOriginMarkdownFiles } from './generator/origin-markdown.js';
 
 const args = process.argv.slice(2);
 
@@ -695,74 +695,6 @@ const isOriginPage = (post) => post.markdownUrl && post.lang === post.originLang
 
 const buildOriginPages = (postPages) => postPages.filter(isOriginPage).sort(sortPostsByDate);
 
-const formatMarkdownContent = (content) => `${String(content || '').replace(/\s+$/, '')}\n`;
-
-const writeOriginMarkdownFiles = async ({ buildDir, originPages, imageIndex }) =>
-  Promise.all(
-    originPages.map(async (post) => {
-      const processedContent = await preprocessObsidianContent({
-        source: post.content,
-        filePath: post.sourcePath,
-        imageIndex,
-        inputDir,
-        imageExts: IMAGE_EXTS,
-        pathExists,
-        resolveImageFromIndex,
-      });
-      const outputPath = path.join(buildDir, stripLeadingSlash(post.markdownUrl));
-      await ensureDir(path.dirname(outputPath));
-      await writeFile(outputPath, formatMarkdownContent(processedContent));
-    })
-  );
-
-const toPublicUrl = ({ siteUrl, pathName }) => buildUrl(siteUrl, pathName);
-
-const collectFilterTabs = (items) => {
-  const categorySet = new Set();
-  items.forEach((item) => {
-    (item.categories || []).forEach((category) => categorySet.add(category));
-  });
-  return ['All', ...Array.from(categorySet).sort((a, b) => a.localeCompare(b))];
-};
-
-const buildFilterLines = ({ listDataByLang, defaultLang, siteUrl }) =>
-  listDataByLang.map((group) => {
-    const tabs = collectFilterTabs(group.items).join(', ');
-    const listUrl = toPublicUrl({
-      siteUrl,
-      pathName: buildListUrl(group.lang, defaultLang),
-    });
-    return `- ${group.lang}: ${tabs} (page: ${listUrl})`;
-  });
-
-const buildLlmsTxt = ({ siteTitle, siteUrl, defaultLang, originPages, listDataByLang }) => {
-  const pageLines = originPages.map(
-    (post) =>
-      `- ${post.title} [${post.lang}] (${post.translationKey}) | html: ${toPublicUrl({
-        siteUrl,
-        pathName: post.url,
-      })} | markdown: ${toPublicUrl({ siteUrl, pathName: post.markdownUrl })}`
-  );
-  const filterLines = buildFilterLines({ listDataByLang, defaultLang, siteUrl });
-  return [
-    `# ${siteTitle}`,
-    '',
-    'This file lists canonical markdown URLs for original-language pages.',
-    `Home: ${toPublicUrl({ siteUrl, pathName: buildHomeUrl(defaultLang, defaultLang) })}`,
-    `Blog: ${toPublicUrl({ siteUrl, pathName: buildListUrl(defaultLang, defaultLang) })}`,
-    `Sitemap: ${toPublicUrl({ siteUrl, pathName: '/sitemap.xml' })}`,
-    `RSS: ${toPublicUrl({ siteUrl, pathName: '/rss.xml' })}`,
-    `Filter index: ${toPublicUrl({ siteUrl, pathName: '/posts/filter-index.json' })}`,
-    '',
-    'Filter tabs:',
-    ...filterLines,
-    '',
-    'Pages:',
-    ...pageLines,
-    '',
-  ].join('\n');
-};
-
 const run = async () => {
   if (outputDir === inputDir) {
     throw new Error('Output directory must be different from input directory.');
@@ -818,6 +750,12 @@ const run = async () => {
     buildDir,
     originPages,
     imageIndex: imagePipeline.imageIndex,
+    inputDir,
+    imageExts: IMAGE_EXTS,
+    pathExists,
+    resolveImageFromIndex,
+    siteTitle: config.siteTitle,
+    siteUrl: config.siteUrl,
   });
   await writeFile(
     path.join(buildDir, 'llms.txt'),

@@ -2,6 +2,7 @@ import { pageData, restoreScrollPosition, saveScrollPosition } from './app/state
 import { initFilters } from './app/filters.js';
 import { initToc } from './app/toc.js';
 import { initComments } from './app/comments.js';
+import { initCitation } from './app/citation.js';
 import { initThemeControls } from './app/theme.js';
 import { initAskAiEntry } from './app/ask-ai-entry.js';
 import { initAskAiPage } from './app/ask-ai-page.js';
@@ -42,6 +43,7 @@ const init = async () => {
   initToc();
   markTallImages();
   initImagePreview();
+  initCitation();
   initComments();
   window.addEventListener('beforeunload', saveScrollPosition);
 };
