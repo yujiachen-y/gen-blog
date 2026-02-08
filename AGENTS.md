@@ -42,3 +42,4 @@
 
 - Pre-commit runs `lint-staged`; fix lint/format issues before committing.
 - Avoid committing `dist/` and `.sample-markdown/` content.
+- Do not store personal information in this repository (especially in `AGENTS.md`), including personal emails, phone numbers, home addresses, IDs, credentials, or local machine paths.
