@@ -22,7 +22,7 @@ const copyRecursive = async (src, dest) => {
 const resolveArtifactSource = ({ post, artifact }) =>
   path.resolve(path.dirname(post.sourcePath), artifact.source);
 
-export const collectPostArtifacts = (posts) =>
+const collectRawArtifacts = (posts) =>
   posts.flatMap((post) =>
     (post.artifacts || []).map((artifact) => ({
       post,
@@ -31,19 +31,39 @@ export const collectPostArtifacts = (posts) =>
     }))
   );
 
+const mergeArtifactIntoMap = (byUrl, entry) => {
+  const existing = byUrl.get(entry.artifact.url);
+  if (!existing) {
+    byUrl.set(entry.artifact.url, entry);
+    return;
+  }
+  if (existing.post.translationKey !== entry.post.translationKey) {
+    throw new Error(
+      `blog_artifacts url collision: ${entry.artifact.url} is shared between posts "${existing.post.translationKey}" and "${entry.post.translationKey}"`
+    );
+  }
+  if (existing.sourcePath !== entry.sourcePath) {
+    throw new Error(
+      `blog_artifacts source mismatch: ${entry.artifact.url} resolves to different sources across translations of "${entry.post.translationKey}" (${existing.sourcePath} vs ${entry.sourcePath})`
+    );
+  }
+};
+
+export const collectPostArtifacts = (posts) => {
+  const byUrl = new Map();
+  collectRawArtifacts(posts).forEach((entry) => mergeArtifactIntoMap(byUrl, entry));
+  return Array.from(byUrl.values());
+};
+
 export const validateArtifactUrls = ({ postPages, artifacts }) => {
-  const taken = new Map();
-  postPages.forEach((post) => {
-    taken.set(post.url, `post "${post.translationKey}"`);
-  });
+  const postUrls = new Map(postPages.map((post) => [post.url, post.translationKey]));
   artifacts.forEach(({ post, artifact }) => {
-    const existing = taken.get(artifact.url);
-    if (existing) {
+    const conflictingPostKey = postUrls.get(artifact.url);
+    if (conflictingPostKey) {
       throw new Error(
-        `blog_artifacts url collision: ${artifact.url} from ${post.sourcePath} conflicts with ${existing}`
+        `blog_artifacts url collision: ${artifact.url} from ${post.sourcePath} conflicts with post "${conflictingPostKey}"`
       );
     }
-    taken.set(artifact.url, `artifact from ${post.sourcePath}`);
   });
 };
 
