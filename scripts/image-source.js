@@ -74,7 +74,21 @@ const validateRemoteSize = (size, options, src) => {
   }
 };
 
-const fetchRemoteImage = async (src, options) => {
+const REMOTE_FETCH_ATTEMPTS = 3;
+const REMOTE_FETCH_RETRY_DELAY_MS = 500;
+
+const isRetryableFetchError = (error) => {
+  if (!error) return false;
+  if (error.name === 'AbortError') return true;
+  const match = /Failed to fetch image \((\d+)\)/.exec(error.message || '');
+  if (!match) return true;
+  const status = Number(match[1]);
+  return status >= 500;
+};
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fetchRemoteImageOnce = async (src, options) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), options.remoteTimeoutMs);
 
@@ -96,6 +110,22 @@ const fetchRemoteImage = async (src, options) => {
   } finally {
     clearTimeout(timeoutId);
   }
+};
+
+const fetchRemoteImage = async (src, options) => {
+  let lastError = null;
+  for (let attempt = 1; attempt <= REMOTE_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetchRemoteImageOnce(src, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt === REMOTE_FETCH_ATTEMPTS || !isRetryableFetchError(error)) {
+        throw error;
+      }
+      await delay(REMOTE_FETCH_RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastError;
 };
 
 export const resolveImageSourceInput = async ({ src, options, relativePath }) => {

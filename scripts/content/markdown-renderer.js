@@ -184,6 +184,9 @@ export const renderMarkdownWithImages = async ({
                   external: false,
                 };
               } catch (error) {
+                console.warn(
+                  `[gen-blog] remote image fetch failed, keeping raw URL: ${src} (${error.message})`
+                );
                 return { picture: null, external: true };
               }
             })()
