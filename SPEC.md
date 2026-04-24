@@ -33,6 +33,11 @@ Required for `blog_publish: true`:
 Optional:
 
 - `blog_cover_image`: local path or supported image source
+- `blog_artifacts`: list of companion artifacts for the post. Each entry:
+  - `type`: string (free‑form; known types like `slides`, `demo`, `notebook`, `playground` drive default banner labels)
+  - `source`: path to an artifact file or directory, resolved relative to the markdown file
+  - `url`: absolute site URL path (must start and end with `/`), must not collide with any post URL
+  - `label`: optional display label on the in‑post banner; falls back to a type + language default
 
 Rules:
 
@@ -81,6 +86,7 @@ Processing rules:
 - List page shows **all posts** (no pagination), grouped into **year sections** (e.g., 2025, 2024, 2023).
 - JSON index for filters is generated.
 - RSS feeds at `/rss.xml` and `/rss-<lang>.xml` are generated when `siteUrl` is set.
+- `blog_artifacts` sources are copied verbatim (no transforms) to their configured `url` paths and linked from the post page via a banner block. Artifact URLs are added to the sitemap.
 
 If output contains `.git`, `CNAME`, or `.nojekyll`:
 

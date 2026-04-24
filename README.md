@@ -84,6 +84,31 @@ Place theme assets under `$VAULT/.blog/theme/`:
 - The generator deletes `outputDir` when it is not a GitHub Pages repo (no `.git`, `CNAME`, `.nojekyll`). Use a dedicated output folder.
 - Remote images are disabled by default for privacy/security; enable explicitly if needed.
 
+## Post artifacts
+
+A post can ship companion static assets (slide decks, interactive demos, notebooks, etc.) via the optional `blog_artifacts` frontmatter field. Each artifact lives in the vault next to the post and is copied verbatim to a configured URL; the generated post HTML renders a banner linking to it.
+
+```yaml
+---
+blog_publish: true
+blog_title: My Post
+blog_date: 2026-04-24
+blog_lang: zh
+blog_translation_key: my-post
+blog_category:
+  - Essays
+blog_artifacts:
+  - type: slides # free-form label; known types drive default banner text
+    source: ./my-post.slides # path relative to this md file (dir or single file)
+    url: /my-post-slides/ # absolute site URL path; must not collide with any post URL
+    label: 打开演示稿（30 张） # optional; falls back to a type + language default
+---
+```
+
+- Sources may be a directory (copied recursively, opaque) or a single file.
+- URLs must start and end with `/`. The generator errors out on collisions with post URLs or duplicate artifact URLs.
+- Artifacts are added to the sitemap but not to RSS, filter index, or `llms.txt`.
+
 ## License
 
 MIT. See `LICENSE`.

@@ -1711,6 +1711,56 @@ body[data-page='ask-ai'] .ask-ai-page {
   line-height: 1.1;
 }
 
+.article-artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: -0.5rem 0 2rem 0;
+}
+
+.article-artifact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1.1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--view-bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.article-artifact:hover {
+  border-color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+.article-artifact:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+.article-artifact-label {
+  font-weight: 500;
+}
+
+.article-artifact-arrow {
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  transition: transform 0.2s ease;
+}
+
+.article-artifact:hover .article-artifact-arrow {
+  transform: translateX(2px);
+  color: var(--text-primary);
+}
+
 .article-meta {
   color: var(--text-secondary);
   margin-bottom: 3rem;

@@ -134,6 +134,49 @@ const parseCategories = (data, filePath) => {
   return { value: categories, error: null };
 };
 
+const ARTIFACT_STRING_FIELDS = ['type', 'source', 'url'];
+
+const parseArtifactEntry = ({ entry, index, filePath }) => {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return { value: null, error: `${filePath}: blog_artifacts[${index}] must be an object` };
+  }
+  const values = Object.fromEntries(
+    ARTIFACT_STRING_FIELDS.map((key) => [key, String(entry[key] || '').trim()])
+  );
+  const missing = ARTIFACT_STRING_FIELDS.find((key) => !values[key]);
+  if (missing) {
+    return {
+      value: null,
+      error: `${filePath}: blog_artifacts[${index}].${missing} must be a non-empty string`,
+    };
+  }
+  if (!values.url.startsWith('/') || !values.url.endsWith('/')) {
+    return {
+      value: null,
+      error: `${filePath}: blog_artifacts[${index}].url must start and end with "/"`,
+    };
+  }
+  const rawLabel = entry.label === undefined ? null : String(entry.label).trim();
+  return { value: { ...values, label: rawLabel || null }, error: null };
+};
+
+const parseArtifacts = (data, filePath) => {
+  if (data.blog_artifacts === undefined) {
+    return { value: [], error: null };
+  }
+  if (!Array.isArray(data.blog_artifacts)) {
+    return { value: null, error: `${filePath}: blog_artifacts must be an array` };
+  }
+  const results = data.blog_artifacts.map((entry, index) =>
+    parseArtifactEntry({ entry, index, filePath })
+  );
+  const firstError = results.find((result) => result.error);
+  if (firstError) {
+    return { value: null, error: firstError.error };
+  }
+  return { value: results.map((result) => result.value), error: null };
+};
+
 const collectValueErrors = (results) => results.map((result) => result.error).filter(Boolean);
 
 const parsePostFrontmatter = ({ data, content, filePath }) => {
@@ -147,7 +190,16 @@ const parsePostFrontmatter = ({ data, content, filePath }) => {
   const originalLang = parseOriginalLang(data, filePath);
   const translationKey = parseTranslationKey(data, filePath);
   const categories = parseCategories(data, filePath);
-  const errors = collectValueErrors([title, date, lang, originalLang, translationKey, categories]);
+  const artifacts = parseArtifacts(data, filePath);
+  const errors = collectValueErrors([
+    title,
+    date,
+    lang,
+    originalLang,
+    translationKey,
+    categories,
+    artifacts,
+  ]);
   if (errors.length > 0) {
     return { post: null, errors };
   }
@@ -162,6 +214,7 @@ const parsePostFrontmatter = ({ data, content, filePath }) => {
       translationKey: translationKey.value,
       categories: categories.value,
       coverImage: data.blog_cover_image ? String(data.blog_cover_image).trim() : null,
+      artifacts: artifacts.value,
       content,
     },
     errors: [],

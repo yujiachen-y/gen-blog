@@ -1,5 +1,6 @@
 import { escapeHtml } from '../shared/templates.js';
 import { formatShortDate, groupPostsByYear } from '../shared/list-presenter.js';
+import { buildArtifactBannerHtml } from './artifacts.js';
 
 export const buildPictureHtml = (picture, options = {}) => {
   if (!picture) {
@@ -134,10 +135,11 @@ export const buildArticleHtml = (post, options = {}) => {
   const metaLabel = [post.date || '', categoryLabel].filter(Boolean).join(' · ');
   const metaHtml =
     !isAbout && metaLabel ? `\n  <div class="article-date">${escapeHtml(metaLabel)}</div>` : '';
+  const artifactsHtml = isAbout ? '' : buildArtifactBannerHtml(post);
 
   return `\n${coverHtml}\n<div class="article-text-content">${metaHtml}\n  <h1 class="article-hero">${escapeHtml(
     post.title
-  )}</h1>\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
+  )}</h1>${artifactsHtml}\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
 };
 
 export const buildTocHtml = (tocItems, lang) => {

@@ -36,6 +36,11 @@ import {
   writeListPages,
   writeSitemapAndRobots,
 } from './generator/generate-list-output.js';
+import {
+  collectPostArtifacts,
+  validateArtifactUrls,
+  writeArtifacts,
+} from './generator/generate-artifacts.js';
 import { createImageOptions } from './generator/image-options.js';
 import { writeOriginMarkdownFiles } from './generator/origin-markdown.js';
 
@@ -730,6 +735,8 @@ const run = async () => {
     processedPosts,
     groups: languageContext.groups,
   });
+  const postArtifacts = collectPostArtifacts(postPages);
+  validateArtifactUrls({ postPages, artifacts: postArtifacts });
   const originPages = buildOriginPages(postPages);
   const listDataByLang = buildListDataByLang({
     languages: languageContext.languages,
@@ -820,12 +827,13 @@ const run = async () => {
     themeLinks: config.themeLinks,
     stringifyPageData,
   });
+  await writeArtifacts({ artifacts: postArtifacts, buildDir });
   await writeSitemapAndRobots({
     siteUrl: config.siteUrl,
     postPages,
     listDataByLang,
     defaultLang: languageContext.defaultLang,
-    extraPaths: ['/ask-ai/'],
+    extraPaths: ['/ask-ai/', ...postArtifacts.map(({ artifact }) => artifact.url)],
     buildDir,
   });
   await finalizeOutputDirectory({ preserveOutput, buildDir, outputDir });
