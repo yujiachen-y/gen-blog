@@ -7,6 +7,7 @@ import { initThemeControls } from './app/theme.js';
 import { initAskAiEntry } from './app/ask-ai-entry.js';
 import { initAskAiPage } from './app/ask-ai-page.js';
 import { initImagePreview } from './app/image-preview.js';
+import { initNavMobile } from './app/nav-mobile.js';
 
 const markTallImages = () => {
   if (pageData.pageType !== 'post') {
@@ -35,6 +36,7 @@ const markTallImages = () => {
 };
 
 const init = async () => {
+  initNavMobile();
   initThemeControls();
   initAskAiEntry();
   initAskAiPage();

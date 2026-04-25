@@ -18,12 +18,10 @@ import {
 } from '../shared/paths.js';
 import { renderTemplate } from '../shared/templates.js';
 
-const buildPostHreflangLinks = ({ post, isAbout, siteUrl }) =>
+const buildPostHreflangLinks = ({ post, siteUrl }) =>
   buildHreflangLinks(
     post.languages.reduce((acc, lang) => {
-      const url = isAbout
-        ? buildHomeUrl(lang, post.defaultLang)
-        : buildPostUrl(post.translationKey, lang, post.defaultLang);
+      const url = buildPostUrl(post.translationKey, lang, post.defaultLang);
       acc[lang] = buildUrl(siteUrl, url);
       return acc;
     }, {})
@@ -65,12 +63,12 @@ const resolveSidebarLayout = ({ post, isAbout, authorData }) => {
   };
 };
 
-const buildPostMetaTags = ({ post, siteTitle, canonicalUrl, isAbout, siteUrl }) =>
+const buildPostMetaTags = ({ post, siteTitle, canonicalUrl, siteUrl }) =>
   buildMetaForPost({
     post,
     siteTitle,
     canonicalUrl,
-    hreflangLinks: buildPostHreflangLinks({ post, isAbout, siteUrl }),
+    hreflangLinks: buildPostHreflangLinks({ post, siteUrl }),
     markdownAlternateUrl: post.markdownUrl ? buildUrl(siteUrl, post.markdownUrl) : null,
     baseUrl: siteUrl,
     buildUrl,
@@ -183,7 +181,7 @@ const writeSinglePostPage = async ({
     isAbout,
     authorData,
   });
-  const metaTags = buildPostMetaTags({ post, siteTitle, canonicalUrl, isAbout, siteUrl });
+  const metaTags = buildPostMetaTags({ post, siteTitle, canonicalUrl, siteUrl });
   const renderContext = buildPostRenderContext({
     post,
     defaultLang,
@@ -212,30 +210,16 @@ const writeSinglePostPage = async ({
     })
   );
   await writePage(path.join(buildDir, stripLeadingSlash(post.url)), html);
-  return { isAbout, lang: post.lang, html };
 };
 
 export const writePostPages = async (options) => {
-  const renderedPages = await Promise.all(
+  await Promise.all(
     options.postPages.map((post) =>
       writeSinglePostPage({
         post,
         ...options,
       })
     )
-  );
-  return renderedPages
-    .filter((item) => item.isAbout)
-    .reduce((acc, item) => acc.set(item.lang, item.html), new Map());
-};
-
-export const writeAboutAliases = async ({ aboutHtmlByLang, defaultLang, aboutGroup, buildDir }) => {
-  if (aboutHtmlByLang.size === 0) return;
-  await Promise.all(
-    Array.from(aboutHtmlByLang.entries()).map(async ([lang, html]) => {
-      const aliasUrl = buildAboutUrl(lang, defaultLang, aboutGroup);
-      await writePage(path.join(buildDir, stripLeadingSlash(aliasUrl)), html);
-    })
   );
 };
 

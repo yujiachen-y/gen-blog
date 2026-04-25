@@ -20,7 +20,6 @@ import { buildFontLinks, buildIconLinks, readTemplate } from './shared/templates
 import { buildPostSummary, decorateListItems } from './shared/list-presenter.js';
 import { buildTocHtml } from './content/pages.js';
 import {
-  buildHomeUrl,
   buildListUrl,
   buildPostCoverPath,
   buildPostImagePath,
@@ -29,7 +28,8 @@ import {
   buildUrl,
 } from './shared/paths.js';
 import { THEME_CONSTANTS } from '../theme.constants.js';
-import { writeAboutAliases, writePostPages, writeRssFiles } from './generator/generate-output.js';
+import { writePostPages, writeRssFiles } from './generator/generate-output.js';
+import { writeRootRedirects } from './generator/generate-redirects.js';
 import { writeAskAiPage } from './generator/generate-ask-ai-output.js';
 import {
   finalizeOutputDirectory,
@@ -587,13 +587,36 @@ const processCoverPicture = async ({ post, allowRemoteImages, imagePipeline }) =
   });
 };
 
+const normalizeTitleText = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const stripDuplicateTitleHtml = (html, title) => {
+  if (!html || !title) return html;
+  const match = html.match(/^\s*<h1\b[^>]*>([\s\S]*?)<\/h1>\s*/i);
+  if (!match) return html;
+  const inner = match[1].replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/gi, ' ');
+  if (normalizeTitleText(inner) !== normalizeTitleText(title)) return html;
+  return html.slice(match[0].length);
+};
+
+const filterDuplicateTitleToc = (toc, title) => {
+  if (!Array.isArray(toc) || toc.length === 0 || !title) return toc;
+  const first = toc[0];
+  if (!first || first.level !== 1) return toc;
+  if (normalizeTitleText(first.text) !== normalizeTitleText(title)) return toc;
+  return toc.slice(1);
+};
+
 const processSinglePost = async ({ post, allowRemoteImages, imagePipeline }) => {
   const coverPicture = await processCoverPicture({
     post,
     allowRemoteImages,
     imagePipeline,
   });
-  const { html: contentHtml, toc } = await renderMarkdownWithImages({
+  const { html: rawContentHtml, toc: rawToc } = await renderMarkdownWithImages({
     content: post.content,
     filePath: post.sourcePath,
     imageCache: imagePipeline.imageCache,
@@ -608,6 +631,8 @@ const processSinglePost = async ({ post, allowRemoteImages, imagePipeline }) => 
     pathExists,
   });
   const isAbout = post.translationKey === 'about';
+  const contentHtml = stripDuplicateTitleHtml(rawContentHtml, post.title);
+  const toc = filterDuplicateTitleToc(rawToc, post.title);
   const tocHtml = isAbout ? '' : buildTocHtml(toc, post.lang);
   return {
     ...post,
@@ -625,11 +650,7 @@ const buildPostPages = ({ processedPosts, groups }) => {
   const groupMap = new Map(groups.map((group) => [group.translationKey, group]));
   return processedPosts.map((post) => {
     const group = groupMap.get(post.translationKey);
-    const isAbout = post.translationKey === 'about';
-    const resolvePostUrl = (lang) =>
-      isAbout
-        ? buildHomeUrl(lang, group.defaultLang)
-        : buildPostUrl(post.translationKey, lang, group.defaultLang);
+    const resolvePostUrl = (lang) => buildPostUrl(post.translationKey, lang, group.defaultLang);
     const pageUrl = resolvePostUrl(post.lang);
     const langSwitchUrl = group.languages.find((lang) => lang !== post.lang)
       ? resolvePostUrl(group.languages.find((lang) => lang !== post.lang))
@@ -774,7 +795,7 @@ const run = async () => {
       listDataByLang,
     })
   );
-  const aboutHtmlByLang = await writePostPages({
+  await writePostPages({
     postPages,
     buildDir,
     postTemplate,
@@ -791,10 +812,10 @@ const run = async () => {
     commentsConfig: config.siteConfig.comments,
     stringifyPageData,
   });
-  await writeAboutAliases({
-    aboutHtmlByLang,
+  await writeRootRedirects({
+    languages: languageContext.languages,
     defaultLang: languageContext.defaultLang,
-    aboutGroup: languageContext.aboutGroup,
+    siteTitle: config.siteTitle,
     buildDir,
   });
   await writeRssFiles({ rssOutputs, buildDir });

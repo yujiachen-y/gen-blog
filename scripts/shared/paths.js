@@ -56,11 +56,6 @@ export const buildUrl = (baseUrl, pathName) => {
 
 const LIST_BASE = '/blog';
 
-export const buildHomeUrl = (lang, defaultLang) => {
-  const prefix = lang === defaultLang ? '' : `/${lang}`;
-  return `${prefix}/` || '/';
-};
-
 export const buildPostUrl = (translationKey, lang, defaultLang) => {
   const langSegment = lang === defaultLang ? '' : `/${lang}`;
   return `/${translationKey}${langSegment}/`;
@@ -69,6 +64,13 @@ export const buildPostUrl = (translationKey, lang, defaultLang) => {
 export const buildListUrl = (lang, defaultLang) => {
   const langSegment = lang === defaultLang ? '' : `/${lang}`;
   return `${LIST_BASE}${langSegment}/`;
+};
+
+export const buildHomeUrl = (lang, defaultLang) => buildListUrl(lang, defaultLang);
+
+export const buildRootRedirectPath = (lang, defaultLang) => {
+  const prefix = lang === defaultLang ? '' : `/${lang}`;
+  return `${prefix}/` || '/';
 };
 
 export const buildAboutUrl = (lang, defaultLang, aboutGroup) => {

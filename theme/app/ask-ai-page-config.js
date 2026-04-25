@@ -1,7 +1,7 @@
 export const uiText = {
   en: {
-    kicker: '',
-    title: 'Ask anything about me.',
+    kicker: 'ASK · AI',
+    title: 'Ask anything about my writing.',
     subtitle: 'Ask directly and get answers grounded in this blog.',
     subtitlePost: 'It just read "%TITLE%" — and the rest of this blog.',
     trust: 'Answers include citations to posts.',
@@ -21,7 +21,7 @@ export const uiText = {
     copiedRedirect: 'Copied! Opening',
   },
   zh: {
-    kicker: '',
+    kicker: '问 · AI',
     title: '让 AI 替你翻翻我的博客。',
     subtitle: '直接提问，立即获得基于博客内容的回答。',
     subtitlePost: '它刚读完《%TITLE%》——还有我所有其他文章。',
