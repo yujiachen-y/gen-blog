@@ -1016,28 +1016,57 @@ body[data-page='ask-ai'] .ask-ai-page {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 0.6rem;
 }
 
 .nav-link-button {
-  background: transparent;
-  border: none;
+  position: relative;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg-hover);
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: 0.95rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  padding: 0.2rem 0;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 999px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s ease;
-  position: relative;
+  cursor: pointer;
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .nav-link-button:hover {
   color: var(--text-primary);
+  border-color: transparent;
+  transform: scale(1.02);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.nav-link-button:active {
+  transform: scale(0.98);
+}
+
+.nav-link-button:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+body[data-page='about'] .nav-link-button[data-nav='about'],
+body[data-page='list'] .nav-link-button[data-nav='blog'],
+body[data-page='post'] .nav-link-button[data-nav='blog'] {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+  box-shadow: var(--card-shadow);
 }
 
 .brand {
@@ -2410,11 +2439,12 @@ body.image-preview-open {
   }
 
   .nav-links {
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
   .nav-links .nav-link-button {
-    font-size: 0.85rem;
+    padding: 0 0.8rem;
+    font-size: 0.67rem;
   }
 
   .filter-bar {
@@ -2652,6 +2682,8 @@ body.image-preview-open {
     opacity: 1 !important;
   }
 
+  .nav-link-button:hover,
+  .nav-link-button:active,
   .ask-ai-pill:hover,
   .ask-ai-pill:active,
   .ask-ai-chip:hover,
