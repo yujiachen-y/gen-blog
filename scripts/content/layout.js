@@ -39,7 +39,7 @@ export const buildNavbarHtml = ({
           </button>
         </div>
         <a class="ask-ai-entry" href="/ask-ai/" data-ask-ai-entry aria-label="Open Ask AI">
-          <span class="ask-ai-entry-label">Ask</span>
+          <span class="ask-ai-entry-label">Ask AI</span>
         </a>
       </div>
       <button class="nav-mobile-toggle" type="button" data-nav-mobile-toggle aria-expanded="false" aria-controls="nav-mobile-sheet" aria-label="Open menu">

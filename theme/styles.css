@@ -1459,25 +1459,11 @@ body[data-page='about'] .article-page {
   color: var(--text-muted);
 }
 
-.citation-toggle {
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
-  color: var(--ink);
-  padding: var(--s-1) 0;
-}
-
-.citation-toggle:hover {
-  color: var(--ink-strong);
-}
-
 .citation-blocks {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
-}
-
-.citation-blocks[hidden] {
-  display: none;
+  margin-top: var(--s-4);
 }
 
 .citation-block {

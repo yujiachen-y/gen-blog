@@ -12,8 +12,6 @@ import {
 const citationLabels = {
   en: {
     title: 'CITE THIS ARTICLE',
-    expand: 'Show citation',
-    collapse: 'Hide citation',
     copy: 'Copy',
     copied: 'Copied',
     apa: 'APA',
@@ -21,8 +19,6 @@ const citationLabels = {
   },
   zh: {
     title: '引用本文',
-    expand: '展开引用',
-    collapse: '收起引用',
     copy: '复制',
     copied: '已复制',
     apa: 'APA',
@@ -133,33 +129,16 @@ const resolveTranslationKey = () => {
   return collapseWhitespace(firstSegment) || 'post';
 };
 
-const buildCitationToolbar = ({ labels, blocks }) => {
-  const toolbar = document.createElement('div');
-  toolbar.className = 'citation-toolbar';
+const buildCitationHeading = ({ labels }) => {
+  const heading = document.createElement('div');
+  heading.className = 'citation-toolbar';
 
   const label = document.createElement('div');
   label.className = 'citation-label';
   label.textContent = labels.title;
 
-  const toggle = document.createElement('button');
-  toggle.type = 'button';
-  toggle.className = 'citation-toggle';
-
-  let expanded = false;
-  const applyExpandedState = () => {
-    blocks.hidden = !expanded;
-    toggle.textContent = expanded ? labels.collapse : labels.expand;
-    toggle.setAttribute('aria-expanded', String(expanded));
-  };
-
-  toggle.addEventListener('click', () => {
-    expanded = !expanded;
-    applyExpandedState();
-  });
-
-  applyExpandedState();
-  toolbar.append(label, toggle);
-  return toolbar;
+  heading.append(label);
+  return heading;
 };
 
 export const initCitation = () => {
@@ -222,5 +201,5 @@ export const initCitation = () => {
     buildCitationBlock({ title: labels.bibtex, text: bibtexCitation, labels })
   );
 
-  section.append(buildCitationToolbar({ labels, blocks }), blocks);
+  section.append(buildCitationHeading({ labels }), blocks);
 };
