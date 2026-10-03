@@ -594,6 +594,11 @@ body[data-page='list'] {
   .filter-bar-row {
     flex-wrap: wrap;
   }
+
+  /* Own row from first paint, so rendering the pills doesn't push the search box down. */
+  .filter-pills {
+    flex-basis: 100%;
+  }
 }
 
 .filter-pills {

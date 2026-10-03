@@ -199,32 +199,40 @@ const loadFilterIndex = async () => {
   return response.json();
 };
 
-const initSearch = async () => {
+// Fuse is only fetched once the reader starts using search.
+let fuseReady = null;
+const loadFuse = () => {
+  fuseReady =
+    fuseReady ||
+    import('/fuse.mjs')
+      .then((module) => {
+        const Fuse = module.default || module;
+        state.fuseInstance = new Fuse(state.filterIndex, {
+          keys: ['title'],
+          threshold: 0.35,
+          ignoreLocation: true,
+        });
+      })
+      .catch((error) => console.error('Failed to load Fuse.js:', error));
+  return fuseReady;
+};
+
+const initSearch = () => {
   if (!searchInput) {
     return;
   }
-  try {
-    const module = await import('/fuse.mjs');
-    const Fuse = module.default || module;
-    state.fuseInstance = new Fuse(state.filterIndex, {
-      keys: ['title'],
-      threshold: 0.35,
-      ignoreLocation: true,
-    });
-
-    let debounceTimer = null;
-    searchInput.addEventListener('input', () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
-      debounceTimer = setTimeout(() => {
-        state.searchQuery = searchInput.value.trim();
-        renderFilteredPosts();
-      }, 200);
-    });
-  } catch (error) {
-    console.error('Failed to load Fuse.js:', error);
-  }
+  searchInput.addEventListener('focus', loadFuse, { once: true });
+  let debounceTimer = null;
+  searchInput.addEventListener('input', () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(async () => {
+      await loadFuse();
+      state.searchQuery = searchInput.value.trim();
+      renderFilteredPosts();
+    }, 200);
+  });
 };
 
 export const initFilters = async () => {
@@ -253,7 +261,7 @@ export const initFilters = async () => {
     if (state.filter !== 'all') {
       renderFilteredPosts();
     }
-    await initSearch();
+    initSearch();
   } catch (error) {
     console.error(error);
   }

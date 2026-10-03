@@ -121,6 +121,7 @@ const buildListTemplateValues = ({
   LIST_CONTENT: buildListSectionsHtml(group.items),
   LANG_SWITCH_MODE: langSwitchMode,
   SEARCH_PLACEHOLDER: labels.searchPlaceholder,
+  FILTER_ALL_LABEL: labels.filterAll,
   PAGE_DATA: stringifyPageData(buildListPageData({ group, otherLang, defaultLang, labels })),
 });
 

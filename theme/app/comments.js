@@ -236,12 +236,20 @@ export const initComments = async () => {
     loadMore.hidden = currentPage >= pageCount;
   };
 
-  try {
-    const data = await fetchComments(config, 1);
-    renderPage(data);
-  } catch {
-    // degrade silently
-  }
+  // Wait until the section is near the viewport before calling the comment API.
+  const observer = new IntersectionObserver(
+    async (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      try {
+        renderPage(await fetchComments(config, 1));
+      } catch {
+        // degrade silently
+      }
+    },
+    { rootMargin: '800px 0px' }
+  );
+  observer.observe(section);
 
   loadMore.addEventListener('click', async () => {
     loadMore.disabled = true;
