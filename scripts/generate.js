@@ -18,6 +18,7 @@ import {
 } from './shared/fs-utils.js';
 import {
   buildFontLinks,
+  buildFontPreloadLinks,
   buildIconLinks,
   buildModulePreloadLinks,
   readTemplate,
@@ -284,6 +285,10 @@ const parseSiteConfig = (parsed) => {
       parsed.fontCssUrls === undefined
         ? null
         : normalizeStringList(parsed.fontCssUrls, 'blog.config.json: fontCssUrls'),
+    fontPreloadUrls:
+      parsed.fontPreloadUrls === undefined
+        ? null
+        : normalizeStringList(parsed.fontPreloadUrls, 'blog.config.json: fontPreloadUrls'),
     comments: parseCommentsConfig(parsed.comments),
   };
 };
@@ -475,7 +480,10 @@ const resolveGenerationConfig = async () => {
     siteUrl,
     siteTitle,
     themeAssets,
-    fontLinks: buildFontLinks(siteConfig.fontCssUrls),
+    fontLinks: [
+      buildFontPreloadLinks(siteConfig.fontPreloadUrls),
+      buildFontLinks(siteConfig.fontCssUrls),
+    ].join('\n'),
     themeLinks: [
       themeAssets.fontsCssPath
         ? `<link rel="stylesheet" href="/${THEME_CONSTANTS.assets.fontsCss}" />`

@@ -33,6 +33,14 @@ export const buildFontLinks = (urls) => {
   return links.join('\n');
 };
 
+export const buildFontPreloadLinks = (urls) =>
+  (urls || [])
+    .map(
+      (url) =>
+        `<link rel="preload" href="${escapeHtml(url)}" as="font" type="font/woff2" crossorigin />`
+    )
+    .join('\n');
+
 // ponytail: preloads every theme/app module because app.js imports them all statically;
 // walk the import graph instead if a module becomes dynamic-only.
 export const buildModulePreloadLinks = async (themeDir) => {

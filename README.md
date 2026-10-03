@@ -57,6 +57,7 @@ Create `blog.config.json` at `$VAULT/.blog/`:
 - `siteUrl`: string, optional (used for canonical/sitemap)
 - `allowRemoteImages`: boolean, default `false` (when true, remote HTTP(S) images are downloaded into `assets/`)
 - `fontCssUrls`: string or string[], optional (external font stylesheet URLs). If omitted, no external font CSS is included.
+- `fontPreloadUrls`: string or string[], optional (`.woff2` URLs to `<link rel="preload">`, e.g. `/fonts/body.woff2` from the theme fonts below; pair with `font-display: optional` to avoid font-swap layout shifts).
 - `comments`: object, optional (enable Cusdis comments when configured; `appId` is required)
 
 ### Theme assets (optional)
