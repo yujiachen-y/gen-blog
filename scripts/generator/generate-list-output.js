@@ -13,6 +13,7 @@ import {
 } from '../shared/paths.js';
 import { buildPostSummary } from '../shared/list-presenter.js';
 import { renderTemplate } from '../shared/templates.js';
+import { buildRootLanguageScript } from './generate-redirects.js';
 
 const buildListPageData = ({ group, otherLang, defaultLang, labels }) => ({
   pageType: 'list',
@@ -95,6 +96,7 @@ const buildListTemplateValues = ({
   navbarHtml,
   rssLinks,
 }) => ({
+  HEAD_SCRIPT: '',
   PAGE_TITLE: `${siteTitle}`,
   META_TAGS: buildMetaForList({
     siteTitle,
@@ -147,23 +149,27 @@ const writeSingleListPage = async ({
     aboutGroup,
     labels,
   });
-  const html = renderTemplate(
-    listTemplate,
-    buildListTemplateValues({
-      group,
-      siteTitle,
-      siteUrl,
-      labels,
-      iconLinks,
-      fontLinks,
-      themeLinks,
-      stringifyPageData,
-      defaultLang,
-      rssLinks: buildListRssLinks({ rssEnabled, group, defaultLang, siteUrl }),
-      ...renderContext,
-    })
+  const values = buildListTemplateValues({
+    group,
+    siteTitle,
+    siteUrl,
+    labels,
+    iconLinks,
+    fontLinks,
+    themeLinks,
+    stringifyPageData,
+    defaultLang,
+    rssLinks: buildListRssLinks({ rssEnabled, group, defaultLang, siteUrl }),
+    ...renderContext,
+  });
+  await writePage(
+    path.join(buildDir, stripLeadingSlash(renderContext.pageUrl)),
+    renderTemplate(listTemplate, values)
   );
-  await writePage(path.join(buildDir, stripLeadingSlash(renderContext.pageUrl)), html);
+  if (group.lang === defaultLang) {
+    const headScript = buildRootLanguageScript({ languages, defaultLang });
+    await writePage(buildDir, renderTemplate(listTemplate, { ...values, HEAD_SCRIPT: headScript }));
+  }
 };
 
 export const writeListPages = async (options) =>

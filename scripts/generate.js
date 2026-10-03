@@ -16,7 +16,12 @@ import {
   writeFile,
   writeJson,
 } from './shared/fs-utils.js';
-import { buildFontLinks, buildIconLinks, readTemplate } from './shared/templates.js';
+import {
+  buildFontLinks,
+  buildIconLinks,
+  buildModulePreloadLinks,
+  readTemplate,
+} from './shared/templates.js';
 import { buildPostSummary, decorateListItems } from './shared/list-presenter.js';
 import { buildTocHtml } from './content/pages.js';
 import {
@@ -471,9 +476,12 @@ const resolveGenerationConfig = async () => {
     siteTitle,
     themeAssets,
     fontLinks: buildFontLinks(siteConfig.fontCssUrls),
-    themeLinks: themeAssets.fontsCssPath
-      ? `<link rel="stylesheet" href="/${THEME_CONSTANTS.assets.fontsCss}" />`
-      : '',
+    themeLinks: [
+      themeAssets.fontsCssPath
+        ? `<link rel="stylesheet" href="/${THEME_CONSTANTS.assets.fontsCss}" />`
+        : '',
+      await buildModulePreloadLinks(themeDir),
+    ].join('\n'),
     iconLinks: themeAssets.icons.length > 0 ? buildIconLinks(themeAssets.icons) : '',
     labels: THEME_CONSTANTS.labels,
     allowRemoteImages: siteConfig.allowRemoteImages,

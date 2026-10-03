@@ -18,18 +18,19 @@ const markTallImages = () => {
     return;
   }
   const tallRatio = 1.35;
+  // Width/height attributes let lazy images get their class before they load,
+  // so they don't shift layout when scrolled into view.
   const apply = (img) => {
-    const { naturalWidth, naturalHeight } = img;
-    if (!naturalWidth || !naturalHeight) {
+    const width = img.naturalWidth || Number(img.getAttribute('width'));
+    const height = img.naturalHeight || Number(img.getAttribute('height'));
+    if (!width || !height) {
       return;
     }
-    const ratio = naturalHeight / naturalWidth;
-    img.classList.toggle('is-tall', ratio >= tallRatio);
+    img.classList.toggle('is-tall', height / width >= tallRatio);
   };
   images.forEach((img) => {
-    if (img.complete) {
-      apply(img);
-    } else {
+    apply(img);
+    if (!img.complete) {
       img.addEventListener('load', () => apply(img), { once: true });
     }
   });

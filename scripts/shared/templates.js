@@ -33,6 +33,17 @@ export const buildFontLinks = (urls) => {
   return links.join('\n');
 };
 
+// ponytail: preloads every theme/app module because app.js imports them all statically;
+// walk the import graph instead if a module becomes dynamic-only.
+export const buildModulePreloadLinks = async (themeDir) => {
+  const files = await fs.readdir(path.join(themeDir, 'app'));
+  return files
+    .filter((file) => file.endsWith('.js'))
+    .sort()
+    .map((file) => `<link rel="modulepreload" href="/app/${file}" />`)
+    .join('\n');
+};
+
 export const buildIconLinks = (icons) =>
   icons
     .map((icon) => {

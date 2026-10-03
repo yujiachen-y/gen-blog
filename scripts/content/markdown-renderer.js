@@ -224,7 +224,7 @@ export const renderMarkdownWithImages = async ({
     const alt = token.content || '';
     const entry = imageMap.get(src);
     if (entry && entry.picture) {
-      return buildPictureHtml(entry.picture, { alt, imgClass: 'article-image' });
+      return buildPictureHtml(entry.picture, { alt, imgClass: 'article-image', loading: 'lazy' });
     }
     if (entry && entry.external) {
       const title = token.attrGet('title');

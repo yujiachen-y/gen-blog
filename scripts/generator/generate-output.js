@@ -133,6 +133,9 @@ const buildPostTemplateValues = ({
   ICON_LINKS: iconLinks,
   FONT_LINKS: fontLinks,
   THEME_LINKS: themeLinks,
+  KATEX_LINK: post.contentHtml.includes('class="katex')
+    ? '<link rel="stylesheet" href="/katex/katex.min.css" />'
+    : '',
   NAVBAR: navbarHtml,
   LANG: post.lang,
   BODY_PAGE: isAbout ? 'about' : 'post',

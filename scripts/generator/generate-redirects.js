@@ -10,24 +10,28 @@ const escapeHtmlValue = (value) =>
 
 const escapeJsString = (value) => String(value || '').replace(/[\\'"]/g, (ch) => `\\${ch}`);
 
-const buildAutoDetectScript = (langTargets) => {
-  const en = escapeJsString(langTargets.en || langTargets.default);
-  const zh = escapeJsString(langTargets.zh || langTargets.default);
-  return `var stored = localStorage.getItem('gen-blog-lang');
+// "/" serves the default-language list directly (no redirect hop); visitors who
+// prefer another language are sent to that list before the page renders.
+export const buildRootLanguageScript = ({ languages, defaultLang }) => {
+  if (!Array.isArray(languages) || languages.length < 2) return '';
+  const listUrl = (lang) =>
+    escapeJsString(buildListUrl(languages.includes(lang) ? lang : defaultLang, defaultLang));
+  return `<script>(function(){
+  try {
+    var stored = localStorage.getItem('gen-blog-lang');
     var nav = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
     var prefers = stored || (nav.indexOf('zh') === 0 ? 'zh' : 'en');
-    target = prefers === 'zh' ? '${zh}' : '${en}';`;
+    var target = prefers === 'zh' ? '${listUrl('zh')}' : '${listUrl('en')}';
+    if (target !== '${listUrl(defaultLang)}') window.location.replace(target);
+  } catch (e) {}
+})();</script>`;
 };
 
-const buildRootRedirectHtml = ({ targetUrl, lang, siteTitle, autoDetect, langTargets }) => {
-  const safeTarget = escapeJsString(targetUrl);
-  const safeTitle = escapeHtmlValue(siteTitle);
-  const detectBlock = autoDetect ? buildAutoDetectScript(langTargets) : '';
-  return `<!doctype html>
+const buildRootRedirectHtml = ({ targetUrl, lang, siteTitle }) => `<!doctype html>
 <html lang="${lang}">
 <head>
 <meta charset="utf-8" />
-<title>${safeTitle}</title>
+<title>${escapeHtmlValue(siteTitle)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
 <link rel="canonical" href="${targetUrl}" />
@@ -36,42 +40,22 @@ const buildRootRedirectHtml = ({ targetUrl, lang, siteTitle, autoDetect, langTar
 </head>
 <body>
 <p>Redirecting to <a href="${targetUrl}">${targetUrl}</a>…</p>
-<script>(function(){
-  try {
-    var target = '${safeTarget}';
-    ${detectBlock}
-    window.location.replace(target);
-  } catch (e) {
-    window.location.replace('${safeTarget}');
-  }
-})();</script>
+<script>window.location.replace('${escapeJsString(targetUrl)}');</script>
 </body>
 </html>
 `;
-};
 
+// The default language's root ("/") is written by the list page generator.
 export const writeRootRedirects = async ({ languages, defaultLang, siteTitle, buildDir }) => {
-  if (!Array.isArray(languages) || languages.length === 0) return;
-  const langTargets = languages.reduce(
-    (acc, lang) => {
-      acc[lang] = buildListUrl(lang, defaultLang);
-      return acc;
-    },
-    { default: buildListUrl(defaultLang, defaultLang) }
-  );
+  if (!Array.isArray(languages)) return;
   await Promise.all(
-    languages.map(async (lang) => {
-      const targetUrl = buildListUrl(lang, defaultLang);
-      const rootPath = buildRootRedirectPath(lang, defaultLang);
-      const autoDetect = lang === defaultLang;
-      const html = buildRootRedirectHtml({
-        targetUrl,
-        lang,
-        siteTitle,
-        autoDetect,
-        langTargets,
-      });
-      await writePage(path.join(buildDir, stripLeadingSlash(rootPath)), html);
-    })
+    languages
+      .filter((lang) => lang !== defaultLang)
+      .map(async (lang) => {
+        const targetUrl = buildListUrl(lang, defaultLang);
+        const rootPath = buildRootRedirectPath(lang, defaultLang);
+        const html = buildRootRedirectHtml({ targetUrl, lang, siteTitle });
+        await writePage(path.join(buildDir, stripLeadingSlash(rootPath)), html);
+      })
   );
 };
