@@ -14,6 +14,7 @@ A personal Obsidian-to-static blog generator with bilingual support, dark mode, 
 - Ask AI page with one-click ChatGPT + copy-first provider shortcuts
 - Full-text search in the nav (⌘K or `/`), backed by a lazily fetched `/posts/search-index.json`
 - Ink and paper that age with each post's date (computed at build time; rebuild to keep it current)
+- A footer with the site title pressed into the paper, an ink well (invitation, social links, colophon), and page corners on posts that turn to the newer and older post
 
 ## Requirements
 

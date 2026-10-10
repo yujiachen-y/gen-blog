@@ -6,6 +6,7 @@ import { ageOf, yearAge } from '../theme/app/age.js';
 import { buildFrontmatterHtml } from './content/frontmatter.js';
 import { htmlToText } from './content/search-index.js';
 import { buildTocHtml } from './content/pages.js';
+import { createFooterBuilder } from './content/footer.js';
 
 assert.equal(countWords('<p>简单 vs 容易, it’s <b>simple</b></p>'), 4 + 3);
 assert.equal(readingMinutes(4000, 'zh'), 10);
@@ -56,5 +57,23 @@ const titled = buildTocHtml(
 );
 assert.doesNotMatch(titled, /toc-level-1/);
 assert.match(titled, /toc-level-2 toc-top[^>]*><a class="sidebar-link" href="#b"/);
+
+const items = ['/c/', '/b/', '/a/'].map((url, i) => ({
+  url,
+  title: url,
+  date: `202${3 - i}-01-01`,
+  wordCount: 100,
+}));
+const footerFor = createFooterBuilder({
+  listDataByLang: [{ lang: 'zh', items }],
+  social: [],
+  siteTitle: 'A B',
+});
+const middle = footerFor('zh', '/b/');
+assert.match(middle, /page-curl-newer" href="\/c\/"/);
+assert.match(middle, /page-curl-older" href="\/a\/"/);
+assert.doesNotMatch(footerFor('zh', '/c/'), /page-curl-newer/);
+assert.doesNotMatch(footerFor('zh'), /page-curl/);
+assert.match(footerFor('zh'), /3 篇 · 300 字 · 2021–2023/);
 
 console.log('self-check ok');

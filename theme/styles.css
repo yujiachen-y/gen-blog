@@ -41,6 +41,13 @@
   --paper-fibres-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.86 0 0 0 0 0.76 0 0 0 0 0.6 0 0 0 0.16 -0.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --paper-fibres: var(--paper-fibres-light);
 
+  /* Footer: the ink well and the name pressed into the paper above it. */
+  --pool: oklch(21% 0.06 262);
+  --on-pool: oklch(95% 0.012 85);
+  --on-pool-muted: oklch(80% 0.02 85 / 0.72);
+  --emboss-depth: 4%;
+  --emboss-shadow: 0 -1px 1px oklch(0% 0 0 / 0.16), 0 1.5px 0 oklch(100% 0 0 / 0.75);
+
   --code-keyword: oklch(45% 0.13 30);
   --code-string: oklch(45% 0.1 150);
   --code-comment: oklch(60% 0.005 80);
@@ -136,6 +143,9 @@
   --paper-stain: oklch(58% 0.05 68 / 0.1);
   --paper-edge: oklch(5% 0.01 60 / 0.6);
   --paper-fibres: var(--paper-fibres-dark);
+  --pool: oklch(9% 0.03 262);
+  --emboss-depth: 12%;
+  --emboss-shadow: 0 -1px 1px oklch(0% 0 0 / 0.7), 0 1px 0 oklch(100% 0 0 / 0.07);
 
   color-scheme: dark;
 }
@@ -180,6 +190,9 @@
     --paper-stain: oklch(58% 0.05 68 / 0.1);
     --paper-edge: oklch(5% 0.01 60 / 0.6);
     --paper-fibres: var(--paper-fibres-dark);
+    --pool: oklch(9% 0.03 262);
+    --emboss-depth: 12%;
+    --emboss-shadow: 0 -1px 1px oklch(0% 0 0 / 0.7), 0 1px 0 oklch(100% 0 0 / 0.07);
     color-scheme: dark;
   }
 }
@@ -2615,7 +2628,8 @@ body[data-page='ask-ai'] .ask-ai-page {
 }
 
 @media print {
-  .status-bar {
+  .status-bar,
+  .site-footer {
     display: none;
   }
 }
@@ -2644,7 +2658,9 @@ body[data-page='ask-ai'] .ask-ai-page {
   --source: color-mix(in oklch, var(--ink) 50%, transparent);
 }
 
-body {
+/* The page curl's underside shows the neighbouring post on its own paper (see footer). */
+body,
+.page-curl-under {
   --bg: oklch(
     calc(var(--paper-l0) + var(--paper-dl) * var(--paper-age))
       calc(
@@ -2988,5 +3004,301 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .search-dialog {
     animation: none;
+  }
+}
+
+/*
+ * Footer: the last stretch of paper carries the site's name, blind-pressed (no ink, only
+ * the impression's light and shade); a post also turns up its corners to the newer and
+ * older post. Below the paper's wet edge lies the ink well (see ink-well.js).
+ */
+@property --curl {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+.site-footer {
+  --curl-rest: 96px;
+  margin-top: var(--s-9);
+}
+
+.footer-paper {
+  position: relative;
+  padding: var(--s-7) 0 var(--s-8);
+  overflow: hidden;
+  view-timeline-name: --footer-paper;
+}
+
+.footer-paper.has-curls {
+  padding-bottom: calc(var(--curl-rest) + var(--s-8));
+}
+
+.footer-name {
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  font-family: var(--font-serif);
+  font-size: min(14.5vw, 15rem);
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.035em;
+  color: color-mix(in oklch, var(--bg), black var(--emboss-depth));
+  text-shadow: var(--emboss-shadow);
+  user-select: none;
+}
+
+/* Hovering a letter lets ink run into the impression. */
+.footer-name span {
+  transition: color 900ms var(--ease-out);
+}
+
+.footer-name span:hover {
+  color: var(--ink);
+  transition-duration: 400ms;
+}
+
+.page-curl {
+  --curl: var(--curl-rest);
+  position: absolute;
+  bottom: var(--s-7);
+  z-index: 2;
+  width: var(--curl);
+  height: var(--curl);
+  text-decoration: none;
+  transition: --curl 520ms var(--ease-out);
+}
+
+.page-curl-newer {
+  left: 0;
+}
+
+.page-curl-older {
+  right: 0;
+}
+
+.page-curl:hover,
+.page-curl:focus-visible {
+  --curl: 260px;
+}
+
+@supports (animation-timeline: view()) {
+  .page-curl {
+    animation: curl-in linear both;
+    animation-timeline: --footer-paper;
+    animation-range: entry 30% cover 60%;
+  }
+
+  .page-curl:hover,
+  .page-curl:focus-visible {
+    animation: none;
+  }
+}
+
+@keyframes curl-in {
+  from {
+    --curl: 0px;
+  }
+  to {
+    --curl: var(--curl-rest);
+  }
+}
+
+/* Underneath: the neighbouring post, on paper as old as it is. */
+.page-curl-under {
+  --paper-age: var(--next-age);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: var(--s-3) var(--s-4);
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: inset 0 0 18px oklch(0% 0 0 / 0.12);
+}
+
+.page-curl-older .page-curl-under {
+  align-items: flex-end;
+  text-align: right;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.page-curl-newer .page-curl-under {
+  align-items: flex-start;
+  text-align: left;
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+.page-curl-under i {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-style: normal;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.page-curl-under b,
+.page-curl-under small {
+  display: none;
+}
+
+.page-curl-under b {
+  max-width: 150px;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.page-curl-under small {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.page-curl:hover .page-curl-under :is(b, small),
+.page-curl:focus-visible .page-curl-under :is(b, small) {
+  display: block;
+}
+
+/* The folded flap: the back of this page, lit from the fold. */
+.page-curl-flap {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 -3px 6px oklch(0% 0 0 / 0.18));
+}
+
+.page-curl-older .page-curl-flap {
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--bg) 92%, white),
+    var(--bg) 55%,
+    color-mix(in oklch, var(--bg) 86%, black)
+  );
+}
+
+.page-curl-newer .page-curl-flap {
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  background: linear-gradient(
+    225deg,
+    color-mix(in oklch, var(--bg) 92%, white),
+    var(--bg) 55%,
+    color-mix(in oklch, var(--bg) 86%, black)
+  );
+}
+
+/* The ink well: deep ink with a soft reflection, its wet edge drawn as part of it. */
+.ink-well {
+  position: relative;
+  color: var(--on-pool);
+  background: linear-gradient(var(--pool), color-mix(in oklch, var(--pool) 80%, black));
+}
+
+.ink-well::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(80% 35% at 50% 45%, oklch(100% 0 0 / 0.05), transparent 70%),
+    radial-gradient(55% 35% at 18% 40%, oklch(100% 0 0 / 0.03), transparent 70%);
+}
+
+.ink-well-edge {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  width: 100%;
+  height: 56px;
+  transform: translateY(-100%);
+  fill: var(--pool);
+  pointer-events: none;
+}
+
+.ink-well-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ink-well-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 70vh;
+  max-width: var(--wide-max);
+  margin: 0 auto;
+  padding: var(--s-9) var(--page-pad) var(--s-7);
+  box-sizing: border-box;
+}
+
+.ink-well-invite {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(2.2rem, 4.4vw + 0.6rem, 4.3rem);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.ink-well .ink-well-links {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  margin-top: var(--s-5);
+}
+
+.ink-well .about-social-link,
+.ink-well .about-social-icon {
+  color: var(--on-pool-muted);
+}
+
+.ink-well .about-social-link:hover,
+.ink-well .about-social-link:hover .about-social-icon {
+  color: var(--on-pool);
+}
+
+.ink-well-colophon {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-5);
+  margin: auto 0 0;
+  padding-top: var(--s-8);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--on-pool-muted);
+}
+
+.ink-well-colophon a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklch, var(--on-pool) 25%, transparent);
+}
+
+.ink-well-colophon a:hover {
+  color: var(--on-pool);
+}
+
+/* Touch has no hover to preview with: a corner is just a corner to tap. */
+@media (max-width: 720px) {
+  .page-curl:hover,
+  .page-curl:focus-visible {
+    --curl: var(--curl-rest);
+  }
+
+  .ink-well-inner {
+    min-height: 60vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-curl {
+    animation: none;
+    transition: none;
   }
 }

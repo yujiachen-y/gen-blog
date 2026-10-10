@@ -12,6 +12,7 @@ import { initStatusBar } from './app/status-bar.js';
 import { initKeys } from './app/keys.js';
 import { initSearch } from './app/search.js';
 import { initInkBleed } from './app/ink-bleed.js';
+import { initInkWell } from './app/ink-well.js';
 
 const markTallImages = () => {
   if (pageData.pageType !== 'post') {
@@ -59,6 +60,8 @@ const init = async () => {
   initImagePreview();
   initCitation();
   initComments();
+  // Decorative and last, so nothing above depends on it.
+  initInkWell();
   // pagehide (unlike beforeunload) keeps the page eligible for the back/forward cache.
   window.addEventListener('pagehide', saveScrollPosition);
 };

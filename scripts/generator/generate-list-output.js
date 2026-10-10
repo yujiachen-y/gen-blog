@@ -144,6 +144,7 @@ const writeSingleListPage = async ({
   aboutGroup,
   rssEnabled,
   stringifyPageData,
+  footerFor,
 }) => {
   const renderContext = buildListRenderContext({
     group,
@@ -154,19 +155,22 @@ const writeSingleListPage = async ({
     aboutGroup,
     labels,
   });
-  const values = buildListTemplateValues({
-    group,
-    siteTitle,
-    siteUrl,
-    labels,
-    iconLinks,
-    fontLinks,
-    themeLinks,
-    stringifyPageData,
-    defaultLang,
-    rssLinks: buildListRssLinks({ rssEnabled, group, defaultLang, siteUrl }),
-    ...renderContext,
-  });
+  const values = {
+    FOOTER: footerFor?.(group.lang) || '',
+    ...buildListTemplateValues({
+      group,
+      siteTitle,
+      siteUrl,
+      labels,
+      iconLinks,
+      fontLinks,
+      themeLinks,
+      stringifyPageData,
+      defaultLang,
+      rssLinks: buildListRssLinks({ rssEnabled, group, defaultLang, siteUrl }),
+      ...renderContext,
+    }),
+  };
   await writePage(
     path.join(buildDir, stripLeadingSlash(renderContext.pageUrl)),
     renderTemplate(listTemplate, values)

@@ -163,6 +163,14 @@ Side door, not centerpiece. Visual contract:
 - Prompt panel: collapsed by default, opens to a `--surface` block with mono pre.
 - Match the blog's serif voice. No "AI startup" elements.
 
+### Footer
+
+The end of every page: the site title blind-pressed across the full width of the last stretch of
+paper (light and shade only; ink runs into a letter on hover), then a wet edge into an ink well
+(`--pool`) holding the invitation, social links and colophon. The pointer stirs ripples into the
+well's surface; only light moves, never the text. Posts also turn up their bottom corners: left to
+the newer post, right to the older one, each showing that post on its own (older or newer) paper.
+
 ### About page
 
 - Two-column at desktop ≥900px: article body left (max 60ch), `Connect` block right (sans, hairline-bordered top + bottom only, no card).

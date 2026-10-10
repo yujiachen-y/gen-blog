@@ -181,6 +181,7 @@ const writeSinglePostPage = async ({
   stringifyPageData,
   authorData,
   commentsConfig,
+  footerFor,
 }) => {
   const canonicalUrl = buildUrl(siteUrl, post.url);
   const isAbout = post.translationKey === 'about';
@@ -197,9 +198,9 @@ const writeSinglePostPage = async ({
     labels,
     siteTitle,
   });
-  const html = renderTemplate(
-    postTemplate,
-    buildPostTemplateValues({
+  const html = renderTemplate(postTemplate, {
+    FOOTER: footerFor?.(post.lang, isAbout ? null : post.url) || '',
+    ...buildPostTemplateValues({
       post,
       isAbout,
       siteTitle,
@@ -215,8 +216,8 @@ const writeSinglePostPage = async ({
       canonicalUrl,
       rssLinks: buildPostRssLinks({ rssEnabled, post, defaultLang, siteUrl }),
       ...renderContext,
-    })
-  );
+    }),
+  });
   await writePage(path.join(buildDir, stripLeadingSlash(post.url)), html);
 };
 

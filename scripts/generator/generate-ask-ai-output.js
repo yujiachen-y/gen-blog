@@ -30,6 +30,7 @@ export const writeAskAiPage = async ({
   fontLinks,
   themeLinks,
   stringifyPageData,
+  footerFor,
 }) => {
   const pageLang = defaultLang || 'en';
   const pageUrl = '/ask-ai/';
@@ -60,6 +61,7 @@ export const writeAskAiPage = async ({
     FONT_LINKS: fontLinks,
     THEME_LINKS: themeLinks,
     NAVBAR: navbarHtml,
+    FOOTER: footerFor?.(pageLang) || '',
     LANG: pageLang,
     PAGE_DATA: stringifyPageData(
       buildAskAiPageData({

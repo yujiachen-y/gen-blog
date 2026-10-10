@@ -25,6 +25,7 @@ import {
 } from './shared/templates.js';
 import { buildPostSummary, countWords, decorateListItems } from './shared/list-presenter.js';
 import { buildSearchIndex } from './content/search-index.js';
+import { createFooterBuilder } from './content/footer.js';
 import { buildTocHtml } from './content/pages.js';
 import {
   buildListUrl,
@@ -817,7 +818,13 @@ const run = async () => {
       listDataByLang,
     })
   );
+  const footerFor = createFooterBuilder({
+    listDataByLang,
+    social: authorData?.social,
+    siteTitle: config.siteTitle,
+  });
   await writePostPages({
+    footerFor,
     postPages,
     buildDir,
     postTemplate,
@@ -842,6 +849,7 @@ const run = async () => {
   });
   await writeRssFiles({ rssOutputs, buildDir });
   await writeListPages({
+    footerFor,
     listDataByLang,
     languages: languageContext.languages,
     defaultLang: languageContext.defaultLang,
@@ -858,6 +866,7 @@ const run = async () => {
     stringifyPageData,
   });
   await writeAskAiPage({
+    footerFor,
     askAiTemplate,
     buildDir,
     siteTitle: config.siteTitle,
