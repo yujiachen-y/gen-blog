@@ -3,12 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      (function () {
+        var nav = performance.getEntriesByType('navigation')[0];
+        var returning = nav && nav.type === 'back_forward';
+        // Coming back (back/forward) should look exactly as the reader left it.
+        addEventListener('pagereveal', function (event) {
+          var activation = window.navigation && navigation.activation;
+          var traverse = activation ? activation.navigationType === 'traverse' : returning;
+          if (event.viewTransition && traverse) {
+            event.viewTransition.ready.catch(function () {});
+            event.viewTransition.skipTransition();
+          }
+        });
+      })();
+    </script>
     <title>{{PAGE_TITLE}}</title>
     {{META_TAGS}} {{RSS_LINKS}} {{ICON_LINKS}} {{FONT_LINKS}} {{KATEX_LINK}}
     <link rel="stylesheet" href="/styles.css" />
     {{THEME_LINKS}}
   </head>
-  <body data-page="{{BODY_PAGE}}">
+  <body data-page="{{BODY_PAGE}}" {{BODY_ATTRS}}>
     <div id="root">
       {{NAVBAR}}
       <main class="page-shell article-page">

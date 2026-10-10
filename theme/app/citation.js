@@ -111,9 +111,8 @@ const resolveSiteTitle = () => {
 };
 
 const resolvePublishedAt = () => {
-  const metaLabel = collapseWhitespace(document.querySelector('.article-date')?.textContent);
-  const matched = metaLabel.match(/\d{4}-\d{2}-\d{2}/);
-  return parseDate(matched ? matched[0] : '');
+  const date = document.querySelector('.frontmatter time')?.getAttribute('datetime') || '';
+  return parseDate(date);
 };
 
 const resolveTranslationKey = () => {

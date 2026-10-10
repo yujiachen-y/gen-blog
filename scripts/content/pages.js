@@ -1,6 +1,9 @@
 import { escapeHtml } from '../shared/templates.js';
 import { formatShortDate, groupPostsByYear } from '../shared/list-presenter.js';
 import { buildArtifactBannerHtml } from './artifacts.js';
+import { buildFrontmatterHtml } from './frontmatter.js';
+import { formatMinutes, readingMinutes } from '../../theme/app/reading.js';
+import { yearAge } from '../../theme/app/age.js';
 
 export const buildPictureHtml = (picture, options = {}) => {
   if (!picture) {
@@ -129,17 +132,12 @@ export const buildArticleHtml = (post, options = {}) => {
       })}<div class="article-cover-overlay"></div></div>\n`
     : '';
 
-  const categoryLabel = Array.isArray(post.categories)
-    ? post.categories.map((cat) => cat.toUpperCase()).join(' · ')
-    : '';
-  const metaLabel = [post.date || '', categoryLabel].filter(Boolean).join(' · ');
-  const metaHtml =
-    !isAbout && metaLabel ? `\n  <div class="article-date">${escapeHtml(metaLabel)}</div>` : '';
+  const frontmatterHtml = isAbout ? '' : buildFrontmatterHtml(post);
   const artifactsHtml = isAbout ? '' : buildArtifactBannerHtml(post);
 
-  return `\n${coverHtml}\n<div class="article-text-content">${metaHtml}\n  <h1 class="article-hero">${escapeHtml(
+  return `\n${coverHtml}\n<div class="article-text-content">\n  <h1 class="article-hero">${escapeHtml(
     post.title
-  )}</h1>${artifactsHtml}\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
+  )}</h1>${frontmatterHtml}${artifactsHtml}\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
 };
 
 export const buildTocHtml = (tocItems, lang) => {
@@ -147,10 +145,18 @@ export const buildTocHtml = (tocItems, lang) => {
     return '';
   }
   const title = getSidebarTitle('toc', lang);
+  // Two levels read as an outline; deeper headings crowd the sidebar. A lone leading H1
+  // is the body's own title (the post title is rendered separately), so skip past it.
+  const levels = tocItems.map((item) => item.level);
+  const loneTitle = levels[0] === 1 && levels.lastIndexOf(1) === 0 && levels.length > 1;
+  const top = loneTitle ? 2 : Math.min(...levels);
   const items = tocItems
+    .filter((item) => item.level >= top && item.level <= top + 1)
     .map(
       (item) =>
-        `\n      <li class="toc-item sidebar-item toc-level-${item.level}"><a class="sidebar-link" href="#${escapeHtml(
+        `\n      <li class="toc-item sidebar-item toc-level-${item.level}${
+          item.level === top ? ' toc-top' : ''
+        }"><a class="sidebar-link" href="#${escapeHtml(
           item.id
         )}">${escapeHtml(item.text || item.id)}</a></li>`
     )
@@ -169,12 +175,13 @@ export const buildCardHtml = (post) => {
       })
     : '';
   const shortDate = post.shortDate || formatShortDate(post.date);
+  const minutes = formatMinutes(readingMinutes(post.wordCount, post.lang), post.lang);
 
   return `\n<a class="card${post.coverPicture ? ' has-image' : ''}" href="${post.url}">\n  <div class="card-content-wrapper">\n    <div class="card-title" data-cat="${dataCat}" data-category-name="${escapeHtml(
     categoryLabel
-  )}">${escapeHtml(post.title)}</div>\n    <span class="card-date">${escapeHtml(
-    shortDate
-  )}</span>\n  </div>\n  ${coverHtml}\n</a>\n`;
+  )}">${escapeHtml(post.title)}</div>\n    <span class="card-minutes">${escapeHtml(
+    minutes
+  )}</span>\n    <span class="card-date">${escapeHtml(shortDate)}</span>\n  </div>\n  ${coverHtml}\n</a>\n`;
 };
 
 export const buildListSectionsHtml = (items) => {
@@ -182,7 +189,7 @@ export const buildListSectionsHtml = (items) => {
   return groups
     .map((group) => {
       const cards = group.items.map((item) => buildCardHtml(item)).join('');
-      return `\n<section class="year-section">\n  <h2 class="year-heading">${escapeHtml(
+      return `\n<section class="year-section aged" style="--age: ${yearAge(group.year)}">\n  <h2 class="year-heading">${escapeHtml(
         group.year
       )}</h2>\n  <div class="year-posts">${cards}</div>\n</section>\n`;
     })

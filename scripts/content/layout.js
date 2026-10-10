@@ -30,6 +30,11 @@ export const buildNavbarHtml = ({
     </div>
     <div class="controls">
       <div class="action-controls">
+        <button class="search-trigger" type="button" data-search-trigger aria-label="Search" aria-haspopup="dialog">
+          <svg class="search-trigger-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+          <span class="search-trigger-label">Search</span>
+          <kbd class="search-trigger-key" data-search-key>⌘K</kbd>
+        </button>
         <div class="lang-switcher" data-lang-switcher data-lang-switcher-mode="${escapeHtml(langSwitchMode)}">
           <button class="lang-toggle" type="button" data-lang-toggle>EN</button>
         </div>

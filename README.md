@@ -12,6 +12,8 @@ A personal Obsidian-to-static blog generator with bilingual support, dark mode, 
 - Image pipeline (local + data URI; optional remote fetch)
 - Font subsetting for configured theme fonts
 - Ask AI page with one-click ChatGPT + copy-first provider shortcuts
+- Full-text search in the nav (⌘K or `/`), backed by a lazily fetched `/posts/search-index.json`
+- Ink and paper that age with each post's date (computed at build time; rebuild to keep it current)
 
 ## Requirements
 

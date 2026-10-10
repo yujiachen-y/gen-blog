@@ -3,11 +3,12 @@ import {
   uiLabels,
   grid,
   filterPills,
-  searchInput,
   state,
   getStoredFilter,
   setStoredFilter,
 } from './state.js';
+import { yearAge } from './age.js';
+import { formatMinutes, readingMinutes } from './reading.js';
 
 const slugifySegment = (value) =>
   String(value || '')
@@ -101,11 +102,15 @@ const createCard = (post) => {
     Number.isInteger(post.categoryColorIndex) ? post.categoryColorIndex : 0
   );
 
+  const minutes = document.createElement('span');
+  minutes.className = 'card-minutes';
+  minutes.textContent = formatMinutes(readingMinutes(post.wordCount, post.lang), post.lang);
+
   const date = document.createElement('span');
   date.className = 'card-date';
   date.textContent = post.shortDate || post.date || '';
 
-  wrapper.append(title, date);
+  wrapper.append(title, minutes, date);
   card.appendChild(wrapper);
 
   if (hasImage) {
@@ -139,7 +144,8 @@ const renderPosts = (posts) => {
   grid.innerHTML = '';
   groupPostsByYear(posts).forEach((group) => {
     const section = document.createElement('section');
-    section.className = 'year-section';
+    section.className = 'year-section aged';
+    section.style.setProperty('--age', String(yearAge(group.year)));
 
     const heading = document.createElement('h2');
     heading.className = 'year-heading';
@@ -160,26 +166,16 @@ const swapPosts = (nextPosts) => {
   renderPosts(nextPosts);
 };
 
-const getFilteredPosts = () => {
-  let posts =
-    state.filter === 'all'
-      ? state.initialPosts
-      : state.filterIndex.filter((post) =>
-          (post.categories || []).some((category) => slugifySegment(category) === state.filter)
-        );
-
-  if (state.searchQuery && state.fuseInstance) {
-    const searchResults = state.fuseInstance.search(state.searchQuery);
-    const matchKeys = new Set(searchResults.map((r) => r.item.translationKey));
-    posts = posts.filter((post) => matchKeys.has(post.translationKey));
-  }
-
-  return posts;
-};
+const getFilteredPosts = () =>
+  state.filter === 'all'
+    ? state.initialPosts
+    : state.filterIndex.filter((post) =>
+        (post.categories || []).some((category) => slugifySegment(category) === state.filter)
+      );
 
 const renderFilteredPosts = () => {
   const posts = getFilteredPosts();
-  if (posts.length === 0 && (state.filter !== 'all' || state.searchQuery)) {
+  if (posts.length === 0 && state.filter !== 'all') {
     if (grid) {
       grid.innerHTML = '<div class="search-empty">No posts found.</div>';
     }
@@ -197,42 +193,6 @@ const loadFilterIndex = async () => {
     throw new Error('Failed to load filter index');
   }
   return response.json();
-};
-
-// Fuse is only fetched once the reader starts using search.
-let fuseReady = null;
-const loadFuse = () => {
-  fuseReady =
-    fuseReady ||
-    import('/fuse.mjs')
-      .then((module) => {
-        const Fuse = module.default || module;
-        state.fuseInstance = new Fuse(state.filterIndex, {
-          keys: ['title'],
-          threshold: 0.35,
-          ignoreLocation: true,
-        });
-      })
-      .catch((error) => console.error('Failed to load Fuse.js:', error));
-  return fuseReady;
-};
-
-const initSearch = () => {
-  if (!searchInput) {
-    return;
-  }
-  searchInput.addEventListener('focus', loadFuse, { once: true });
-  let debounceTimer = null;
-  searchInput.addEventListener('input', () => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-    debounceTimer = setTimeout(async () => {
-      await loadFuse();
-      state.searchQuery = searchInput.value.trim();
-      renderFilteredPosts();
-    }, 200);
-  });
 };
 
 export const initFilters = async () => {
@@ -261,7 +221,6 @@ export const initFilters = async () => {
     if (state.filter !== 'all') {
       renderFilteredPosts();
     }
-    initSearch();
   } catch (error) {
     console.error(error);
   }

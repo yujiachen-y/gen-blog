@@ -1,5 +1,13 @@
 const UNKNOWN_YEAR = 'Unknown';
 
+// ponytail: Han chars + latin words, the usual 字数 convention; code and math count too.
+export const countWords = (html) => {
+  const text = String(html || '').replace(/<[^>]+>/g, ' ');
+  const han = (text.match(/\p{Script=Han}/gu) || []).length;
+  const words = (text.match(/[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g) || []).length;
+  return han + words;
+};
+
 export const formatShortDate = (dateStr) => {
   if (!dateStr || dateStr.length < 10) {
     return dateStr || '';
@@ -74,6 +82,7 @@ export const buildPostSummary = (post) => ({
   year: post.year,
   categories: post.categories,
   categoryColorIndex: post.categoryColorIndex,
+  wordCount: post.wordCount || 0,
   coverImage: post.coverPicture
     ? {
         webp: post.coverPicture.sources[0].src,

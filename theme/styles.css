@@ -18,6 +18,28 @@
   --callout-bg: oklch(95% 0.012 85);
   --code-bg: oklch(96% 0.008 85);
   --selection: oklch(42% 0.11 255 / 0.2);
+  --source: color-mix(in oklch, var(--ink) 48%, transparent);
+
+  /* Iron-gall ink and paper fade along --age (0 fresh, 1 eight years old); see .aged. */
+  --ink-l0: 34%;
+  --ink-dl: 12%;
+  --ink-c0: 0.11;
+  --ink-dc: -0.025;
+  --ink-h0: 258;
+  --ink-dh: 162;
+  --paper-l0: 98%;
+  --paper-dl: -5.5%;
+  --paper-c0: 0.006;
+  --paper-dc: 0.028;
+  --paper-h0: 85;
+  --paper-dh: -5;
+  --paper-blend: multiply;
+  --paper-dip: 0;
+  --paper-stain: oklch(60% 0.07 65 / 0.16);
+  --paper-edge: oklch(48% 0.06 62 / 0.28);
+  --paper-fibres-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.33 0 0 0 0 0.2 0 0 0 0.42 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --paper-fibres-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.86 0 0 0 0 0.76 0 0 0 0 0.6 0 0 0 0.16 -0.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --paper-fibres: var(--paper-fibres-light);
 
   --code-keyword: oklch(45% 0.13 30);
   --code-string: oklch(45% 0.1 150);
@@ -97,6 +119,23 @@
   --code-builtin: oklch(80% 0.11 60);
   --code-attr: oklch(78% 0.09 200);
   --code-symbol: oklch(78% 0.13 10);
+  --ink-l0: 76%;
+  --ink-dl: 2%;
+  --ink-c0: 0.09;
+  --ink-dc: -0.005;
+  --ink-h0: 255;
+  --ink-dh: 177;
+  --paper-l0: 15%;
+  --paper-dl: 3%;
+  --paper-c0: 0.008;
+  --paper-dc: 0.016;
+  --paper-h0: 255;
+  --paper-dh: 167;
+  --paper-blend: normal;
+  --paper-dip: 0.9;
+  --paper-stain: oklch(58% 0.05 68 / 0.1);
+  --paper-edge: oklch(5% 0.01 60 / 0.6);
+  --paper-fibres: var(--paper-fibres-dark);
 
   color-scheme: dark;
 }
@@ -124,6 +163,23 @@
     --code-builtin: oklch(80% 0.11 60);
     --code-attr: oklch(78% 0.09 200);
     --code-symbol: oklch(78% 0.13 10);
+    --ink-l0: 76%;
+    --ink-dl: 2%;
+    --ink-c0: 0.09;
+    --ink-dc: -0.005;
+    --ink-h0: 255;
+    --ink-dh: 177;
+    --paper-l0: 15%;
+    --paper-dl: 3%;
+    --paper-c0: 0.008;
+    --paper-dc: 0.016;
+    --paper-h0: 255;
+    --paper-dh: 167;
+    --paper-blend: normal;
+    --paper-dip: 0.9;
+    --paper-stain: oklch(58% 0.05 68 / 0.1);
+    --paper-edge: oklch(5% 0.01 60 / 0.6);
+    --paper-fibres: var(--paper-fibres-dark);
     color-scheme: dark;
   }
 }
@@ -590,17 +646,6 @@ body[data-page='list'] {
   flex-wrap: nowrap;
 }
 
-@media (max-width: 540px) {
-  .filter-bar-row {
-    flex-wrap: wrap;
-  }
-
-  /* Own row from first paint, so rendering the pills doesn't push the search box down. */
-  .filter-pills {
-    flex-basis: 100%;
-  }
-}
-
 .filter-pills {
   display: flex;
   align-items: center;
@@ -643,40 +688,6 @@ body[data-page='list'] {
   color: var(--ink);
   background: var(--ink-soft);
   border-color: var(--ink-soft);
-}
-
-.search-box {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-}
-
-.search-input {
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
-  color: var(--text);
-  padding: var(--s-2) var(--s-3);
-  width: 200px;
-  border: 1px solid var(--rule-strong);
-  border-radius: 4px;
-  transition: border-color var(--d-1) var(--ease-out);
-}
-
-.search-input::placeholder {
-  color: var(--text-faint);
-}
-
-.search-input:focus {
-  border-color: var(--ink);
-}
-
-@media (max-width: 540px) {
-  .search-input {
-    width: 100%;
-  }
-  .search-box {
-    flex: 1 1 100%;
-  }
 }
 
 .grid-container {
@@ -729,7 +740,6 @@ body[data-page='list'] {
 }
 
 .card:hover {
-  background: var(--ink-soft);
   border-bottom-color: var(--rule);
 }
 
@@ -860,17 +870,6 @@ body[data-page='about'] .article-page {
 .article-text-content {
   display: flex;
   flex-direction: column;
-}
-
-.article-date {
-  font-family: var(--font-sans);
-  font-size: var(--t-micro);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: var(--s-3);
-  font-feature-settings: 'tnum';
 }
 
 .article-hero {
@@ -1024,16 +1023,6 @@ body[data-page='about'] .article-page {
 
 .article-body blockquote.callout::before {
   content: none;
-}
-
-.article-body blockquote.callout > p:first-child {
-  font-family: var(--font-sans);
-  font-size: var(--t-micro);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: var(--s-3);
 }
 
 .article-body blockquote.callout > p:last-child {
@@ -1265,6 +1254,8 @@ body[data-page='about'] .article-page {
     align-self: start;
     max-height: calc(100vh - var(--nav-h) - var(--s-7));
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
   }
 }
 
@@ -1303,6 +1294,10 @@ body[data-page='about'] .article-page {
   }
   .article-toc.is-open .sidebar-panel-content {
     display: block;
+  }
+  /* The disclosure button already names the outline. */
+  .toc-title {
+    display: none;
   }
   .sidebar-panel-static .sidebar-panel-content,
   .article-profile .sidebar-panel-content {
@@ -1349,35 +1344,72 @@ body[data-page='about'] .article-page {
 }
 
 .toc-list {
+  --toc-marker: 1.6rem;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
   padding: 0;
   margin: 0;
 }
 
+/*
+ * Two levels, like an outline: sections carry their Markdown #s and some air
+ * between them; subsections tuck under the section text without marks.
+ * The section being read is inked (see toc.js).
+ */
 .toc-item {
   margin: 0;
 }
 
-.toc-level-1 .sidebar-link {
-  font-weight: 600;
+.toc-item .sidebar-link {
+  display: flex;
+  align-items: baseline;
+  padding: 3px 0 3px calc(var(--toc-marker) + 0.4rem);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  transition: color var(--d-1) var(--ease-out);
+}
+
+.toc-item.toc-top + .toc-item.toc-top,
+.toc-item:not(.toc-top) + .toc-item.toc-top {
+  margin-top: var(--s-3);
+}
+
+.toc-item.toc-top .sidebar-link {
+  gap: 0.4rem;
+  padding-left: 0;
+  font-size: var(--t-meta);
+  font-weight: 500;
   color: var(--text);
 }
 
-.toc-level-2 .sidebar-link {
-  padding-left: var(--s-3);
+.toc-item.toc-top .sidebar-link::before {
+  flex: 0 0 var(--toc-marker);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--source);
 }
 
-.toc-level-3 .sidebar-link {
-  padding-left: var(--s-5);
-  font-size: 0.78rem;
+.toc-top.toc-level-1 .sidebar-link::before {
+  content: '#';
+  content: '#' / '';
 }
 
-.toc-level-4 .sidebar-link {
-  padding-left: var(--s-6);
-  font-size: 0.78rem;
+.toc-top.toc-level-2 .sidebar-link::before {
+  content: '##';
+  content: '##' / '';
+}
+
+.toc-top.toc-level-3 .sidebar-link::before {
+  content: '###';
+  content: '###' / '';
+}
+
+.toc-item.is-active .sidebar-link,
+.toc-item.is-active .sidebar-link::before {
+  color: var(--ink);
 }
 
 /* About page social */
@@ -2354,5 +2386,607 @@ body[data-page='ask-ai'] .ask-ai-page {
   body {
     background: white;
     color: black;
+  }
+}
+
+/*
+ * Source marks: the Markdown each page was written in shows through, set small
+ * and in faded ink. Headings hang their #s in the left margin, quotes their >,
+ * lists their -; the post header is the note's own frontmatter.
+ * The second `content` declaration hides marks from screen readers where supported.
+ */
+.article-hero::before,
+.article-body h1::before,
+.article-body h2::before,
+.article-body h3::before,
+.article-body h4::before {
+  display: inline-block;
+  width: 5em;
+  margin-left: -5em;
+  padding-right: 0.7em;
+  box-sizing: border-box;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0;
+  color: var(--source);
+}
+
+.article-hero::before,
+.article-body h1::before {
+  content: '#';
+  content: '#' / '';
+}
+
+.article-body h2::before {
+  content: '##';
+  content: '##' / '';
+}
+
+.article-body h3::before {
+  content: '###';
+  content: '###' / '';
+}
+
+.article-body h4::before {
+  content: '####';
+  content: '####' / '';
+}
+
+@media (max-width: 899px) {
+  .article-hero::before,
+  .article-body h1::before,
+  .article-body h2::before,
+  .article-body h3::before,
+  .article-body h4::before {
+    width: auto;
+    margin-left: 0;
+    padding-right: 0.5em;
+  }
+}
+
+.article-body blockquote::before {
+  content: none;
+}
+
+.article-body blockquote:not(.callout) > p::before {
+  content: '>';
+  content: '>' / '';
+  display: inline-block;
+  width: var(--s-5);
+  margin-left: calc(var(--s-5) * -1);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-style: normal;
+  color: var(--source);
+}
+
+.article-body ul {
+  list-style-type: '- ';
+}
+
+.article-body li::marker {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--source);
+}
+
+.article-body hr {
+  width: auto;
+  height: auto;
+  margin: var(--s-7) 0;
+  border: 0;
+  overflow: visible;
+}
+
+.article-body hr::before {
+  content: '---';
+  content: '---' / '';
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--source);
+}
+
+.frontmatter {
+  margin: calc(var(--s-2) * -1) 0 var(--s-6);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+.frontmatter::before,
+.frontmatter::after {
+  content: '---';
+  content: '---' / '';
+  display: block;
+  color: var(--source);
+}
+
+.frontmatter > div {
+  display: flex;
+  gap: 1ch;
+}
+
+.frontmatter dt {
+  flex: 0 0 7ch;
+  color: var(--source);
+}
+
+.frontmatter dt::after {
+  content: ':';
+}
+
+.frontmatter + .article-body > :first-child {
+  margin-top: 0;
+}
+
+.frontmatter dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.frontmatter a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklch, var(--ink) 40%, transparent);
+}
+
+.frontmatter a:hover {
+  border-bottom-color: var(--ink);
+}
+
+.frontmatter [aria-current] {
+  color: var(--text);
+}
+
+.filter-pill {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+.filter-pill:not([data-category='all'])::before {
+  content: '#';
+  content: '#' / '';
+  color: var(--source);
+}
+
+.filter-pill.active::before {
+  color: inherit;
+}
+
+.card-minutes,
+.card-date {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.card-minutes {
+  flex-shrink: 0;
+  min-width: 8ch;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-faint);
+}
+
+@media (max-width: 540px) {
+  .card-minutes {
+    display: none;
+  }
+}
+
+.card:focus-visible {
+  outline: 1px solid color-mix(in oklch, var(--ink) 60%, transparent);
+  outline-offset: -1px;
+}
+
+.card:focus-visible .card-title {
+  color: var(--ink);
+}
+
+.status-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 3px var(--s-3);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+  pointer-events: none;
+}
+
+/* Only where the right margin can hold it without covering the text. */
+@media (max-width: 1279px), (hover: none) {
+  .status-bar {
+    display: none;
+  }
+}
+
+@media print {
+  .status-bar {
+    display: none;
+  }
+}
+
+/*
+ * Time on the page. Elements marked .aged carry --age (0 fresh, 1 eight years old,
+ * set by the generator): their iron-gall ink fades from blue-black through grey to
+ * brown, and the paper behind a post yellows, grows fibres, dark edges and foxing.
+ */
+@property --paper-age {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.aged {
+  --ink: oklch(
+    calc(var(--ink-l0) + var(--ink-dl) * var(--age, 0))
+      calc(
+        (var(--ink-c0) + var(--ink-dc) * var(--age, 0)) * (1 - 0.85 * sin(var(--age, 0) * 180deg))
+      )
+      calc(var(--ink-h0) + var(--ink-dh) * var(--age, 0))
+  );
+  --ink-strong: var(--ink);
+  --ink-soft: color-mix(in oklch, var(--ink) 10%, transparent);
+  --source: color-mix(in oklch, var(--ink) 50%, transparent);
+}
+
+body {
+  --bg: oklch(
+    calc(var(--paper-l0) + var(--paper-dl) * var(--paper-age))
+      calc(
+        (var(--paper-c0) + var(--paper-dc) * var(--paper-age)) *
+          (1 - var(--paper-dip) * sin(var(--paper-age) * 180deg))
+      )
+      calc(var(--paper-h0) + var(--paper-dh) * var(--paper-age))
+  );
+}
+
+.year-section .year-heading {
+  color: var(--ink);
+}
+
+.year-section .card-date,
+.year-section .card-minutes {
+  color: var(--source);
+}
+
+/* The list's paper yellows as it scrolls from the newest year down to the oldest. */
+@supports (animation-timeline: scroll()) {
+  body[data-page='list'] {
+    animation: paper-yellowing linear both;
+    animation-timeline: scroll(root);
+  }
+}
+
+@keyframes paper-yellowing {
+  from {
+    --paper-age: var(--paper-from, 0);
+  }
+  to {
+    --paper-age: var(--paper-to, 0);
+  }
+}
+
+/* Fibres, darker edges and a few foxing spots, behind the text so images stay true. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: calc(var(--paper-age) * 0.95);
+  mix-blend-mode: var(--paper-blend);
+  background:
+    radial-gradient(circle at 12% 18%, var(--paper-stain) 0 14px, transparent 34px),
+    radial-gradient(circle at 87% 71%, var(--paper-stain) 0 10px, transparent 26px),
+    radial-gradient(circle at 74% 9%, var(--paper-stain) 0 6px, transparent 18px),
+    radial-gradient(ellipse at 50% 42%, transparent 58%, var(--paper-edge) 100%),
+    var(--paper-fibres);
+}
+
+/* Ink bleed on a fresh visit to the list: hidden before first paint, revealed by ink-bleed.js. */
+.ink-pending body[data-page='list'] :is(.year-heading, .card-title) {
+  opacity: 0;
+  animation: ink-fallback 0s 3s forwards;
+}
+
+@keyframes ink-fallback {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Ink wash: a list row soaks up ink from where the pointer enters (see ink-bleed.js). */
+@property --wash-r {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+.ink-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.card {
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at calc(var(--wash-x, 50%) + 40px) calc(var(--wash-y, 50%) + 40px),
+    color-mix(in oklch, var(--ink) 14%, transparent) var(--wash-r),
+    transparent calc(var(--wash-r) + 1px)
+  );
+  filter: url(#ink-wash);
+  transition: --wash-r 260ms ease-in;
+}
+
+.card:hover::before,
+.card:focus-visible::before {
+  --wash-r: 760px;
+  transition: --wash-r 900ms var(--ease-out);
+}
+
+/* Blotting transition between pages: the old page blurs away, the new one settles in. */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: blot-out 360ms ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: rise-in 560ms var(--ease-out) 80ms both;
+}
+
+@keyframes blot-out {
+  to {
+    opacity: 0;
+    filter: blur(10px) contrast(0.8);
+    transform: scale(0.985);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}
+
+/* Search: a nav control like its neighbours, opening a panel under the nav. */
+.search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-sans);
+  font-size: var(--t-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  transition:
+    color var(--d-1) var(--ease-out),
+    border-color var(--d-1) var(--ease-out);
+}
+
+.search-trigger:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.search-trigger-icon,
+.search-field svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.search-trigger-key,
+.search-field kbd {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-faint);
+}
+
+@media (max-width: 720px) {
+  .search-trigger {
+    width: 32px;
+    height: 32px;
+    justify-content: center;
+    padding: 0;
+    border-color: transparent;
+  }
+
+  .search-trigger-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .search-trigger-label,
+  .search-trigger-key {
+    display: none;
+  }
+}
+
+.search-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: color-mix(in oklch, var(--bg) 70%, transparent);
+}
+
+.search-dialog {
+  position: absolute;
+  top: calc(var(--nav-h) - var(--s-1));
+  left: 50%;
+  width: min(640px, calc(100vw - 2 * var(--page-pad)));
+  transform: translateX(-50%);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  animation: search-drop 220ms var(--ease-out);
+}
+
+@keyframes search-drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(var(--s-2) * -1));
+  }
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0 var(--s-4);
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--rule);
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.search-field input::placeholder {
+  color: var(--text-faint);
+}
+
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-results {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  padding: var(--s-1) 0 var(--s-2);
+}
+
+.search-group {
+  padding: var(--s-3) var(--s-4) var(--s-1);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.search-item {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr);
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.search-item.is-active,
+.search-item:hover {
+  background: var(--ink-soft);
+}
+
+.search-year {
+  padding-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--ink);
+}
+
+.search-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.search-title {
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+}
+
+.search-snippet {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--font-serif);
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.search-panel mark {
+  color: inherit;
+  background: color-mix(in oklch, var(--ink) 16%, transparent);
+  border-bottom: 1px solid var(--ink);
+}
+
+.search-empty-state {
+  margin: 0;
+  padding: var(--s-5) var(--s-4);
+  font-family: var(--font-serif);
+  color: var(--text-muted);
+}
+
+.search-foot {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--s-2) var(--s-4);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  border-top: 1px solid var(--rule);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-dialog {
+    animation: none;
   }
 }

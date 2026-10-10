@@ -17,6 +17,7 @@ import {
   stripLeadingSlash,
 } from '../shared/paths.js';
 import { renderTemplate } from '../shared/templates.js';
+import { ageOf } from '../../theme/app/age.js';
 
 const buildPostHreflangLinks = ({ post, siteUrl }) =>
   buildHreflangLinks(
@@ -30,6 +31,7 @@ const buildPostHreflangLinks = ({ post, siteUrl }) =>
 const buildPostPageData = ({ post, isAbout, labels, commentsConfig, canonicalUrl }) => ({
   pageType: isAbout ? 'about' : 'post',
   lang: post.lang,
+  wordCount: post.wordCount || 0,
   langSwitchUrl: post.langSwitchUrl || null,
   langSwitcherMode: post.langSwitchUrl ? 'toggle' : 'hidden',
   markdownUrl: isAbout ? null : post.markdownUrl || null,
@@ -139,6 +141,9 @@ const buildPostTemplateValues = ({
   NAVBAR: navbarHtml,
   LANG: post.lang,
   BODY_PAGE: isAbout ? 'about' : 'post',
+  BODY_ATTRS: isAbout
+    ? ''
+    : ` class="aged" style="--age: ${ageOf(post.date)}; --paper-age: ${ageOf(post.date)}"`,
   HOME_URL: homeUrl,
   ABOUT_URL: aboutUrl,
   BLOG_URL: blogUrl,

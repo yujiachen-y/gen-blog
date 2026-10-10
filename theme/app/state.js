@@ -20,7 +20,6 @@ export const grid = document.getElementById('grid-container');
 export const filterPills = document.getElementById('filter-pills');
 export const themeSwitchers = Array.from(document.querySelectorAll('[data-theme-switcher]'));
 export const langSwitchers = Array.from(document.querySelectorAll('[data-lang-switcher]'));
-export const searchInput = document.getElementById('search-input');
 
 export const themeStorageKey = 'gen-blog-theme';
 export const languageStorageKey = 'gen-blog-lang';
@@ -33,8 +32,6 @@ export const state = {
   categories: [],
   initialPosts: pageData.posts || [],
   language: resolvedInitialLanguage,
-  searchQuery: '',
-  fuseInstance: null,
 };
 
 const getScrollKey = () => `${scrollStorageKey}:${state.language}`;

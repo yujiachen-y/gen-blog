@@ -13,6 +13,7 @@ import {
 } from '../shared/paths.js';
 import { buildPostSummary } from '../shared/list-presenter.js';
 import { renderTemplate } from '../shared/templates.js';
+import { ageOf } from '../../theme/app/age.js';
 import { buildRootLanguageScript } from './generate-redirects.js';
 
 const buildListPageData = ({ group, otherLang, defaultLang, labels }) => ({
@@ -112,6 +113,10 @@ const buildListTemplateValues = ({
   THEME_LINKS: themeLinks,
   NAVBAR: navbarHtml,
   LANG: group.lang,
+  // The paper yellows from the newest post at the top to the oldest at the bottom.
+  BODY_ATTRS: group.items.length
+    ? ` style="--paper-from: ${ageOf(group.items[0].date)}; --paper-to: ${ageOf(group.items.at(-1).date)}"`
+    : '',
   HOME_URL: homeUrl,
   ABOUT_URL: aboutUrl,
   BLOG_URL: pageUrl,
@@ -120,7 +125,6 @@ const buildListTemplateValues = ({
   SITE_TITLE: siteTitle,
   LIST_CONTENT: buildListSectionsHtml(group.items),
   LANG_SWITCH_MODE: langSwitchMode,
-  SEARCH_PLACEHOLDER: labels.searchPlaceholder,
   FILTER_ALL_LABEL: labels.filterAll,
   PAGE_DATA: stringifyPageData(buildListPageData({ group, otherLang, defaultLang, labels })),
 });

@@ -3,7 +3,6 @@ export const THEME_CONSTANTS = {
     navAbout: 'About',
     navBlog: 'Blog',
     filterAll: 'All',
-    searchPlaceholder: 'Search...',
   },
   uiText: [
     'About',
@@ -14,7 +13,7 @@ export const THEME_CONSTANTS = {
     'Auto',
     'Dark',
     'Light',
-    'Search...',
+    'Search',
     'Ask',
     'Ask AI',
     'Menu',

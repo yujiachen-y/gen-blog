@@ -3,13 +3,44 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      (function () {
+        var nav = performance.getEntriesByType('navigation')[0];
+        var returning = nav && nav.type === 'back_forward';
+        if (!returning && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          document.documentElement.classList.add('ink-pending');
+        }
+        // Coming back (back/forward) should look exactly as the reader left it.
+        addEventListener('pagereveal', function (event) {
+          var activation = window.navigation && navigation.activation;
+          var traverse = activation ? activation.navigationType === 'traverse' : returning;
+          if (event.viewTransition && traverse) {
+            event.viewTransition.ready.catch(function () {});
+            event.viewTransition.skipTransition();
+          }
+        });
+      })();
+    </script>
     {{HEAD_SCRIPT}}
     <title>{{PAGE_TITLE}}</title>
     {{META_TAGS}} {{RSS_LINKS}} {{ICON_LINKS}} {{FONT_LINKS}}
     <link rel="stylesheet" href="/styles.css" />
     {{THEME_LINKS}}
   </head>
-  <body data-page="list">
+  <body data-page="list" {{BODY_ATTRS}}>
+    <svg class="ink-defs" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="ink-wash" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="3" seed="7" />
+          <feDisplacementMap
+            in="SourceGraphic"
+            scale="34"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </defs>
+    </svg>
     <div id="root">
       {{NAVBAR}}
       <div class="filter-bar">
@@ -18,15 +49,6 @@
             <button class="filter-pill active" type="button" data-category="all">
               {{FILTER_ALL_LABEL}}
             </button>
-          </div>
-          <div class="search-box">
-            <input
-              type="search"
-              id="search-input"
-              class="search-input"
-              placeholder="{{SEARCH_PLACEHOLDER}}"
-              autocomplete="off"
-            />
           </div>
         </div>
       </div>

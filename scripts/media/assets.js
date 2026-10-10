@@ -35,13 +35,6 @@ const copyDir = async (sourceDir, targetDir) => {
   );
 };
 
-const copyFuseAssets = async (targetDir) => {
-  const fusePath = path.resolve('node_modules/fuse.js/dist/fuse.mjs');
-  if (await pathExists(fusePath)) {
-    await fs.copyFile(fusePath, path.join(targetDir, 'fuse.mjs'));
-  }
-};
-
 const copyKatexAssets = async (targetDir) => {
   const katexDir = path.resolve('node_modules/katex/dist');
   if (!(await pathExists(katexDir))) {
@@ -131,5 +124,4 @@ export const copyThemeAssets = async ({ targetDir, themeDir, fontText, themeAsse
   await copyThemeFonts({ themeAssets, targetDir, fontText });
   await copyThemeIcons({ themeAssets, targetDir });
   await copyKatexAssets(targetDir);
-  await copyFuseAssets(targetDir);
 };

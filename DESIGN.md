@@ -38,6 +38,15 @@ All values in OKLCH. Never pure `#000` / `#fff` — every neutral carries a hint
 | `--rule-strong` | `oklch(94% 0.006 85 / 0.24)` | Heavier dividers                  |
 | `--callout-bg`  | `oklch(20% 0.012 255)`       | Aside / callout background        |
 
+### Ink and paper age
+
+The ink is iron-gall: fresh posts are blue-black, and over eight years it fades through grey to
+brown. The paper yellows alongside it, gaining fibres, darker edges and a few foxing spots. The
+generator stamps `--age` (0 fresh, 1 eight years old) on each year section and post body; `.aged`
+derives `--ink`, `--ink-soft` and `--source` from it, and `body` derives `--bg` from `--paper-age`.
+Dark mode swaps the endpoints only (`--ink-*`, `--paper-*`). On the list, the paper yellows as the
+reader scrolls from the newest year to the oldest.
+
 ### Categories
 
 Drop multicolor dots. Categories are typographic — small caps, sans, `--text-muted`. The active filter uses `--ink-soft` background and `--ink` text. No per-category color.

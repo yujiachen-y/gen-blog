@@ -23,7 +23,8 @@ import {
   buildModulePreloadLinks,
   readTemplate,
 } from './shared/templates.js';
-import { buildPostSummary, decorateListItems } from './shared/list-presenter.js';
+import { buildPostSummary, countWords, decorateListItems } from './shared/list-presenter.js';
+import { buildSearchIndex } from './content/search-index.js';
 import { buildTocHtml } from './content/pages.js';
 import {
   buildListUrl,
@@ -654,6 +655,7 @@ const processSinglePost = async ({ post, allowRemoteImages, imagePipeline }) => 
     ...post,
     coverPicture,
     contentHtml,
+    wordCount: countWords(contentHtml),
     tocHtml,
     tocLayoutClass: isAbout ? 'no-toc' : tocHtml ? 'has-toc' : 'no-toc',
   };
@@ -789,6 +791,10 @@ const run = async () => {
   await writeJson(
     path.join(buildDir, 'posts', 'filter-index.json'),
     buildFilterIndex(listDataByLang)
+  );
+  await writeJson(
+    path.join(buildDir, 'posts', 'search-index.json'),
+    buildSearchIndex(listDataByLang)
   );
   await writeOriginMarkdownFiles({
     buildDir,

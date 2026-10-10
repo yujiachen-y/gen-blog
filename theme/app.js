@@ -8,6 +8,10 @@ import { initAskAiEntry } from './app/ask-ai-entry.js';
 import { initAskAiPage } from './app/ask-ai-page.js';
 import { initImagePreview } from './app/image-preview.js';
 import { initNavMobile } from './app/nav-mobile.js';
+import { initStatusBar } from './app/status-bar.js';
+import { initKeys } from './app/keys.js';
+import { initSearch } from './app/search.js';
+import { initInkBleed } from './app/ink-bleed.js';
 
 const markTallImages = () => {
   if (pageData.pageType !== 'post') {
@@ -38,17 +42,25 @@ const markTallImages = () => {
 
 const init = async () => {
   initNavMobile();
+  initSearch();
   initThemeControls();
   initAskAiEntry();
   initAskAiPage();
+  // Restore before the ink lands so it lands on what's on screen, and never make the
+  // list wait for the filter index; restore again if a saved filter re-rendered it.
+  restoreScrollPosition();
+  initInkBleed();
   await initFilters();
   restoreScrollPosition();
+  initKeys();
+  initStatusBar();
   initToc();
   markTallImages();
   initImagePreview();
   initCitation();
   initComments();
-  window.addEventListener('beforeunload', saveScrollPosition);
+  // pagehide (unlike beforeunload) keeps the page eligible for the back/forward cache.
+  window.addEventListener('pagehide', saveScrollPosition);
 };
 
 init();
