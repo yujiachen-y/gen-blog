@@ -9,7 +9,6 @@ const REPO_URL = 'https://github.com/yujiachen-y/gen-blog';
 
 const COPY = {
   zh: {
-    invite: '写博客，是为了遇见新朋友。',
     newer: '较新',
     older: '较早',
     more: '更多文章',
@@ -18,7 +17,6 @@ const COPY = {
     made: `用 Obsidian 写成，由 <a href="${REPO_URL}">gen-blog</a> 排印`,
   },
   en: {
-    invite: 'I write to meet new friends.',
     newer: 'Newer',
     older: 'Older',
     more: 'More posts',
@@ -68,10 +66,12 @@ export const buildFooterHtml = ({
   items = [],
   social = [],
   siteTitle = '',
+  invite = null,
   newer,
   older,
 }) => {
   const copy = COPY[lang] || COPY.en;
+  const inviteText = invite?.[lang];
   const curls =
     buildCurlHtml(newer, 'newer', copy.newer) + buildCurlHtml(older, 'older', copy.older);
   return `
@@ -83,7 +83,7 @@ export const buildFooterHtml = ({
     ${WET_EDGE}
     <canvas class="ink-well-water" aria-hidden="true"></canvas>
     <div class="ink-well-inner">
-      <p class="ink-well-invite">${escapeHtml(copy.invite)}</p>
+      ${inviteText ? `<p class="ink-well-invite">${escapeHtml(inviteText)}</p>` : ''}
       <ul class="about-social-list ink-well-links">${buildSocialLinksHtml(social)}
       </ul>
       <p class="ink-well-colophon">
@@ -136,10 +136,10 @@ const createNeighbourFinder = (listDataByLang) => {
   };
 };
 
-export const createFooterBuilder = ({ listDataByLang, social, siteTitle }) => {
+export const createFooterBuilder = ({ listDataByLang, social, siteTitle, invite }) => {
   const neighboursOf = createNeighbourFinder(listDataByLang);
   return (lang, url = null) =>
-    buildFooterHtml({ lang, social, siteTitle, ...neighboursOf(lang, url) });
+    buildFooterHtml({ lang, social, siteTitle, invite, ...neighboursOf(lang, url) });
 };
 
 export const createPostNavBuilder = ({ listDataByLang }) => {

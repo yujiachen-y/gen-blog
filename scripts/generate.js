@@ -268,6 +268,17 @@ const parseOptionalConfigString = (parsed, key) => {
   return value;
 };
 
+// Per-language copy, e.g. { "en": "…", "zh": "…" }.
+const parseLocalizedConfigStrings = (parsed, key) => {
+  if (parsed[key] === undefined) {
+    return null;
+  }
+  ensureObject(parsed[key], `blog.config.json: ${key} must be an object of language to text`);
+  return Object.fromEntries(
+    Object.keys(parsed[key]).map((lang) => [lang, parseOptionalConfigString(parsed[key], lang)])
+  );
+};
+
 const parseAllowRemoteImages = (parsed) => {
   if (parsed.allowRemoteImages === undefined) {
     return false;
@@ -293,6 +304,8 @@ const parseSiteConfig = (parsed) => {
         ? null
         : normalizeStringList(parsed.fontPreloadUrls, 'blog.config.json: fontPreloadUrls'),
     comments: parseCommentsConfig(parsed.comments),
+    footerInvite: parseLocalizedConfigStrings(parsed, 'footerInvite'),
+    searchPlaceholder: parseLocalizedConfigStrings(parsed, 'searchPlaceholder'),
   };
 };
 
@@ -770,7 +783,13 @@ const run = async () => {
     siteTitle: config.siteTitle,
     defaultLang: languageContext.defaultLang,
   });
-  const stringifyPageData = (value) => JSON.stringify(value, null, 2).replace(/</g, '\\u003c');
+  // Every page also carries the site-wide copy its client code needs.
+  const stringifyPageData = (value) =>
+    JSON.stringify(
+      { ...value, searchPlaceholder: config.siteConfig.searchPlaceholder || null },
+      null,
+      2
+    ).replace(/</g, '\\u003c');
   await writeJson(
     path.join(buildDir, 'posts', 'filter-index.json'),
     buildFilterIndex(listDataByLang)
@@ -804,6 +823,7 @@ const run = async () => {
     listDataByLang,
     social: authorData?.social,
     siteTitle: config.siteTitle,
+    invite: config.siteConfig.footerInvite,
   });
   await writePostPages({
     footerFor,

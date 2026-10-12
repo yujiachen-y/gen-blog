@@ -1,6 +1,6 @@
 // Nav search: ⌘K or / opens a panel that searches titles and full text.
 // The index is fetched on first open, so pages that never search pay nothing.
-import { state } from './state.js';
+import { pageData, state } from './state.js';
 import { ageOf } from './age.js';
 
 const INDEX_URL = '/posts/search-index.json';
@@ -11,7 +11,7 @@ const SEARCH_ICON =
 const COPY = {
   zh: {
     label: '搜索',
-    placeholder: '搜标题或正文，比如 OpenAI、事务、无明',
+    placeholder: '搜标题或正文',
     titles: '标题',
     texts: '正文',
     recent: '最近写的',
@@ -22,7 +22,7 @@ const COPY = {
   },
   en: {
     label: 'Search',
-    placeholder: 'Search titles and text, e.g. OpenAI, consensus',
+    placeholder: 'Search titles and text',
     titles: 'Titles',
     texts: 'In the text',
     recent: 'Recent',
@@ -204,7 +204,12 @@ export const initSearch = () => {
   if (!/Mac|iPhone|iPad/.test(navigator.platform)) {
     ui.trigger.querySelector('[data-search-key]').textContent = 'Ctrl K';
   }
-  ui.copy = COPY[state.language === 'zh' ? 'zh' : 'en'];
+  const lang = state.language === 'zh' ? 'zh' : 'en';
+  // The vault's blog.config.json can suggest words from its own posts.
+  ui.copy = {
+    ...COPY[lang],
+    placeholder: pageData.searchPlaceholder?.[lang] || COPY[lang].placeholder,
+  };
   ui.trigger.addEventListener('click', open);
   document.addEventListener('keydown', onShortcut);
 };

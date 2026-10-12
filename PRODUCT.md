@@ -2,15 +2,15 @@
 register: brand
 ---
 
-# yujiachen.com
+# A gen-blog site
 
-Personal site of Jiachen Yu. The output of `gen-blog`: a static, bilingual (zh/en) blog rendered from an Obsidian vault. Design _is_ the product — every reader sees the same surface and forms an impression of the writer from it.
+A writer's personal site, the output of `gen-blog`: a static, bilingual (zh/en) blog rendered from an Obsidian vault. Design _is_ the product — every reader sees the same surface and forms an impression of the writer from it.
 
 ## Users
 
 - **Primary — engaged readers.** Engineers, PMs, designers, writers who arrive via a specific essay link. They came to read; the site must not get in the way.
 - **Secondary — first-time visitors.** Came from search, a Twitter/小红书 mention, or a referral. Five seconds to decide "is this person serious?" and "do I want to come back?"
-- **Tertiary — future-Jiachen.** Returns to reread, find a quote, link a friend. Wants the index to feel like a working notebook he keeps adding to.
+- **Tertiary — the author, later.** Returns to reread, find a quote, link a friend. Wants the index to feel like a working notebook they keep adding to.
 
 ## What this site is (and is not)
 

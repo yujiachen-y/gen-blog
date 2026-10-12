@@ -98,6 +98,13 @@ assert.match(middle, /page-curl-older" href="\/a\/"/);
 assert.doesNotMatch(footerFor('zh', '/c/'), /page-curl-newer/);
 assert.doesNotMatch(footerFor('zh'), /page-curl/);
 assert.match(footerFor('zh'), /3 篇 · 300 字 · 2021–2023/);
+assert.doesNotMatch(footerFor('zh'), /ink-well-invite/);
+const invited = createFooterBuilder({
+  listDataByLang: [{ lang: 'zh', items }],
+  invite: { zh: '你好' },
+});
+assert.match(invited('zh'), /ink-well-invite">你好</);
+assert.doesNotMatch(invited('en'), /ink-well-invite/);
 const postNavFor = createPostNavBuilder({ listDataByLang: [{ lang: 'zh', items }] });
 assert.match(
   postNavFor('zh', '/b/'),

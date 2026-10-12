@@ -52,6 +52,14 @@ Create `blog.config.json` at `$VAULT/.blog/`:
   ],
   "comments": {
     "appId": "your-cusdis-app-id"
+  },
+  "footerInvite": {
+    "en": "Thanks for reading.",
+    "zh": "谢谢你读到这里。"
+  },
+  "searchPlaceholder": {
+    "en": "Search titles and text, e.g. consensus",
+    "zh": "搜标题或正文，比如 事务"
   }
 }
 ```
@@ -62,6 +70,8 @@ Create `blog.config.json` at `$VAULT/.blog/`:
 - `fontCssUrls`: string or string[], optional (external font stylesheet URLs). If omitted, no external font CSS is included.
 - `fontPreloadUrls`: string or string[], optional (`.woff2` URLs to `<link rel="preload">`, e.g. `/fonts/body.woff2` from the theme fonts below; pair with `font-display: optional` to avoid font-swap layout shifts).
 - `comments`: object, optional (enable Cusdis comments when configured; `appId` is required)
+- `footerInvite`: object of language to text, optional (the line above the footer links; omitted when unset)
+- `searchPlaceholder`: object of language to text, optional (search hint, e.g. words from your own posts; defaults to a generic hint)
 
 ### Theme assets (optional)
 

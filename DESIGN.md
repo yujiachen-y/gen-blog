@@ -1,4 +1,4 @@
-# Design system — yujiachen.com
+# Design system — gen-blog
 
 Working spec. Tokens, faces, components, motion. Companion to `PRODUCT.md`.
 
@@ -122,7 +122,7 @@ The only shadow allowed: `0 1px 0 var(--rule)` as a subtle bottom-border on the 
 
 ### Wordmark
 
-`Jiachen Yu` set in serif, weight 500, slightly tracked (-0.005em). Color shifts to `--ink` on hover. No mark; the typography carries the brand.
+The site title (`siteTitle`) set in serif, weight 500, slightly tracked (-0.005em). Color shifts to `--ink` on hover. No mark; the typography carries the brand.
 
 ### Nav
 
