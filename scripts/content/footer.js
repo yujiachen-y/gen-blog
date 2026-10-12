@@ -10,16 +10,18 @@ const REPO_URL = 'https://github.com/yujiachen-y/gen-blog';
 const COPY = {
   zh: {
     invite: '写博客，是为了遇见新朋友。',
-    newer: '上一页',
-    older: '下一页',
+    newer: '较新',
+    older: '较早',
+    more: '更多文章',
     stats: (posts, words, years) => `${posts} 篇 · ${words} · ${years}`,
     words: (n) => (n >= 10000 ? `${(n / 10000).toFixed(1)} 万字` : `${n} 字`),
     made: `用 Obsidian 写成，由 <a href="${REPO_URL}">gen-blog</a> 排印`,
   },
   en: {
     invite: 'I write to meet new friends.',
-    newer: 'Previous',
-    older: 'Next',
+    newer: 'Newer',
+    older: 'Older',
+    more: 'More posts',
     stats: (posts, words, years) => `${posts} posts · ${words} · ${years}`,
     words: (n) => (n >= 1000 ? `${Math.round(n / 1000)}k words` : `${n} words`),
     made: `Written in Obsidian, set by <a href="${REPO_URL}">gen-blog</a>`,
@@ -35,12 +37,14 @@ const buildNameHtml = (siteTitle) =>
     .map((char) => (char === ' ' ? ' ' : `<span>${escapeHtml(char)}</span>`))
     .join('');
 
+const withArrow = (side, label) => (side === 'newer' ? `← ${label}` : `${label} →`);
+
 // A turned-up corner showing the neighbouring post on its own (older or newer) paper.
 const buildCurlHtml = (post, side, label) => {
   if (!post) {
     return '';
   }
-  const arrow = side === 'newer' ? `← ${label}` : `${label} →`;
+  const arrow = withArrow(side, label);
   return `
     <a class="page-curl page-curl-${side}" href="${escapeHtml(post.url)}" style="--next-age: ${ageOf(
       post.date
@@ -92,19 +96,53 @@ export const buildFooterHtml = ({
 </footer>`;
 };
 
-// Posts get their neighbours in the list (newer and older); other pages get no corners.
-export const createFooterBuilder = ({ listDataByLang, social, siteTitle }) => {
+const buildPostNavLink = (post, side, label) =>
+  post
+    ? `
+  <a class="post-nav-link post-nav-${side}" href="${escapeHtml(post.url)}">
+    <span class="post-nav-meta"><span class="post-nav-dir">${escapeHtml(
+      withArrow(side, label)
+    )}</span><time datetime="${escapeHtml(post.date)}">${escapeHtml(post.date)}</time></span>
+    <span class="post-nav-title">${escapeHtml(post.title)}</span>
+  </a>`
+    : '';
+
+// Right after the article, the neighbouring posts by name; the corners only decorate.
+export const buildPostNavHtml = ({ lang, newer, older }) => {
+  if (!newer && !older) {
+    return '';
+  }
+  const copy = COPY[lang] || COPY.en;
+  return `
+<nav class="post-nav" aria-label="${escapeHtml(copy.more)}">${buildPostNavLink(
+    newer,
+    'newer',
+    copy.newer
+  )}${buildPostNavLink(older, 'older', copy.older)}
+</nav>`;
+};
+
+// Posts get their neighbours in the list (newer and older); other pages get none.
+const createNeighbourFinder = (listDataByLang) => {
   const itemsByLang = new Map(listDataByLang.map((group) => [group.lang, group.items]));
-  return (lang, url = null) => {
+  return (lang, url) => {
     const items = itemsByLang.get(lang) || [];
     const at = url ? items.findIndex((item) => item.url === url) : -1;
-    return buildFooterHtml({
-      lang,
+    return {
       items,
-      social,
-      siteTitle,
       newer: at > 0 ? items[at - 1] : null,
       older: at >= 0 ? items[at + 1] || null : null,
-    });
+    };
   };
+};
+
+export const createFooterBuilder = ({ listDataByLang, social, siteTitle }) => {
+  const neighboursOf = createNeighbourFinder(listDataByLang);
+  return (lang, url = null) =>
+    buildFooterHtml({ lang, social, siteTitle, ...neighboursOf(lang, url) });
+};
+
+export const createPostNavBuilder = ({ listDataByLang }) => {
+  const neighboursOf = createNeighbourFinder(listDataByLang);
+  return (lang, url) => buildPostNavHtml({ lang, ...neighboursOf(lang, url) });
 };

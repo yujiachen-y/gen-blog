@@ -14,12 +14,11 @@
       <main class="page-shell ask-ai-page" data-ask-ai-page>
         <div class="ask-ai-shell page-shell-content">
           <header class="ask-ai-hero">
-            <p class="ask-ai-kicker" data-ask-ai-kicker>ASK AI</p>
-            <h1 class="ask-ai-title" data-ask-ai-title>Ask anything about me.</h1>
+            <p class="ask-ai-kicker" data-ask-ai-kicker>ASK · AI</p>
+            <h1 class="ask-ai-title" data-ask-ai-title>Ask about what I’ve written.</h1>
             <p class="ask-ai-subtitle" data-ask-ai-subtitle>
-              Start a conversation with your favorite LLM, powered by context from my blog.
+              Your question opens in ChatGPT, with my posts as context.
             </p>
-            <p class="ask-ai-trust" data-ask-ai-trust>Answers include citations to posts.</p>
           </header>
 
           <section class="ask-ai-query" aria-label="Ask AI">
@@ -29,7 +28,7 @@
                 type="text"
                 name="question"
                 data-ask-ai-query
-                placeholder="Ask me anything about this blog..."
+                placeholder="A post, an idea, a year…"
                 autocomplete="off"
                 aria-label="Ask AI question"
               />
@@ -42,102 +41,35 @@
                 Ask
               </button>
             </form>
-            <div class="ask-ai-chip-list" data-ask-ai-chip-list>
-              <button class="ask-ai-chip" type="button" data-ask-ai-chip>
-                Summarize recent posts
-              </button>
-              <button class="ask-ai-chip" type="button" data-ask-ai-chip>Top 3 posts</button>
-              <button class="ask-ai-chip" type="button" data-ask-ai-chip>Writing topics</button>
-            </div>
           </section>
 
-          <section class="ask-ai-providers" aria-label="LLM providers">
-            <a
-              class="ask-ai-provider-link"
-              href="https://chatgpt.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              data-provider="chatgpt"
-              aria-label="Open ChatGPT with prompt"
+          <div class="ask-ai-manual is-collapsed" data-prompt-section>
+            <p class="ask-ai-providers">
+              <span data-separator-label>Or copy the prompt for</span>
+              <button class="ask-ai-provider-link" type="button" data-provider="claude">
+                Claude
+              </button>
+              <span aria-hidden="true">·</span>
+              <button class="ask-ai-provider-link" type="button" data-provider="gemini">
+                Gemini
+              </button>
+            </p>
+            <button
+              class="ask-ai-prompt-toggle"
+              type="button"
+              data-toggle-prompt
+              aria-expanded="false"
+              aria-controls="ask-ai-prompt-content"
             >
-              <span class="ask-ai-provider-note" data-provider-note>Prefer ChatGPT?</span>
-              <span class="ask-ai-provider-link-label" data-provider-link-label
-                >One-click prompt</span
-              >
-              <span class="ask-ai-provider-link-arrow" aria-hidden="true">→</span>
-            </a>
-          </section>
-
-          <div class="ask-ai-manual-card is-collapsed" data-prompt-section>
-            <div class="ask-ai-manual-summary">
-              <button
-                class="ask-ai-manual-summary-copy ask-ai-manual-summary-trigger"
-                type="button"
-                data-toggle-prompt-summary
-                aria-expanded="false"
-                aria-controls="ask-ai-prompt-content"
-                aria-label="Prompt panel"
-              >
-                <p class="ask-ai-manual-header" data-prompt-title>Need to paste in other apps?</p>
-                <p class="ask-ai-manual-description" data-prompt-description>
-                  Expand the prompt panel to copy full context or open Claude and Gemini.
-                </p>
-              </button>
-              <button
-                class="ask-ai-prompt-toggle"
-                type="button"
-                data-toggle-prompt
-                aria-expanded="false"
-                aria-controls="ask-ai-prompt-content"
-                aria-label="Prompt panel"
-              >
-                <span class="ask-ai-prompt-toggle-label" data-toggle-prompt-label
-                  >Prompt panel</span
-                >
-                <span class="ask-ai-prompt-toggle-chevron" aria-hidden="true">⌄</span>
-              </button>
-            </div>
+              <span class="ask-ai-prompt-toggle-chevron" aria-hidden="true">›</span>
+              <span data-toggle-prompt-label>Show the prompt</span>
+            </button>
             <div
               class="ask-ai-manual-content"
               id="ask-ai-prompt-content"
               data-prompt-content
               hidden
             >
-              <div class="ask-ai-manual-topline">
-                <p class="ask-ai-manual-secondary-header" data-separator-label>or copy prompt to</p>
-                <div class="ask-ai-pill-group">
-                  <button
-                    class="ask-ai-pill ask-ai-brand-pill"
-                    type="button"
-                    data-provider="claude"
-                    aria-label="Claude"
-                  >
-                    <img
-                      class="ask-ai-brand-lockup"
-                      src="/app/brand/claude-lockup.svg"
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </button>
-                  <button
-                    class="ask-ai-pill ask-ai-brand-pill"
-                    type="button"
-                    data-provider="gemini"
-                    aria-label="Gemini"
-                  >
-                    <img
-                      class="ask-ai-brand-lockup"
-                      src="/app/brand/gemini-lockup.svg"
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </button>
-                </div>
-              </div>
               <div class="ask-ai-prompt-wrap">
                 <button class="ask-ai-copy" type="button" data-copy-prompt aria-label="Copy prompt">
                   Copy

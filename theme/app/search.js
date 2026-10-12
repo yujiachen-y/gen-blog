@@ -47,10 +47,20 @@ const highlight = (text, terms) =>
     escapeHtml(text)
   );
 
+// Cut at spaces so English words stay whole; CJK text has none and is cut by character.
 const snippet = (text, term) => {
   const at = text.toLowerCase().indexOf(term);
-  const from = Math.max(0, at - 28);
-  return `${from > 0 ? '…' : ''}${text.slice(from, at + 80)}…`;
+  let from = Math.max(0, at - 28);
+  let to = Math.min(text.length, at + 80);
+  if (from > 0 && text[from - 1] !== ' ') {
+    const space = text.indexOf(' ', from);
+    if (space !== -1 && space < at) from = space + 1;
+  }
+  if (to < text.length && text[to] !== ' ') {
+    const space = text.lastIndexOf(' ', to);
+    if (space > at + term.length) to = space;
+  }
+  return `${from > 0 ? '…' : ''}${text.slice(from, to)}${to < text.length ? '…' : ''}`;
 };
 
 // ponytail: substring match over the whole index; switch to a prebuilt inverted index past ~1 MB.

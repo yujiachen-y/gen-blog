@@ -6,7 +6,8 @@ import { ageOf, yearAge } from '../theme/app/age.js';
 import { buildFrontmatterHtml } from './content/frontmatter.js';
 import { htmlToText } from './content/search-index.js';
 import { buildTocHtml } from './content/pages.js';
-import { createFooterBuilder } from './content/footer.js';
+import { settleHeadings } from './content/headings.js';
+import { createFooterBuilder, createPostNavBuilder } from './content/footer.js';
 
 assert.equal(countWords('<p>简单 vs 容易, it’s <b>simple</b></p>'), 4 + 3);
 assert.equal(readingMinutes(4000, 'zh'), 10);
@@ -47,16 +48,38 @@ const toc = buildTocHtml(
 assert.match(toc, /toc-level-2 toc-top/);
 assert.match(toc, /toc-level-3"/);
 assert.doesNotMatch(toc, /toc-level-4/);
-const titled = buildTocHtml(
+const lone = settleHeadings(
+  '<blockquote>x</blockquote><h1 id="t">Long <em>title</em></h1><h2 id="a">A</h2>',
   [
-    { level: 1, id: 't', text: 'Title' },
+    { level: 1, id: 't', text: 'Long title' },
     { level: 2, id: 'a', text: 'A' },
-    { level: 2, id: 'b', text: 'B' },
-  ],
-  'en'
+  ]
 );
-assert.doesNotMatch(titled, /toc-level-1/);
-assert.match(titled, /toc-level-2 toc-top[^>]*><a class="sidebar-link" href="#b"/);
+assert.equal(lone.subtitleHtml, 'Long <em>title</em>');
+assert.equal(lone.html, '<blockquote>x</blockquote><h2 id="a">A</h2>');
+assert.deepEqual(
+  lone.toc.map((item) => item.level),
+  [2]
+);
+const sections = settleHeadings('<h1 id="a">A</h1><h2>a</h2><h1 id="b">B</h1>', [
+  { level: 1, id: 'a', text: 'A' },
+  { level: 2, id: 'x', text: 'a' },
+  { level: 1, id: 'b', text: 'B' },
+]);
+assert.equal(sections.subtitleHtml, '');
+assert.equal(sections.html, '<h2 id="a">A</h2><h3>a</h3><h2 id="b">B</h2>');
+assert.deepEqual(
+  sections.toc.map((item) => item.level),
+  [2, 3, 2]
+);
+assert.equal(settleHeadings('<h2>A</h2>').html, '<h2>A</h2>');
+const repeated = settleHeadings(
+  '<blockquote>x</blockquote><h1>Same  Title</h1><p>y</p>',
+  [],
+  'same title'
+);
+assert.equal(repeated.subtitleHtml, '');
+assert.equal(repeated.html, '<blockquote>x</blockquote><p>y</p>');
 
 const items = ['/c/', '/b/', '/a/'].map((url, i) => ({
   url,
@@ -75,5 +98,12 @@ assert.match(middle, /page-curl-older" href="\/a\/"/);
 assert.doesNotMatch(footerFor('zh', '/c/'), /page-curl-newer/);
 assert.doesNotMatch(footerFor('zh'), /page-curl/);
 assert.match(footerFor('zh'), /3 篇 · 300 字 · 2021–2023/);
+const postNavFor = createPostNavBuilder({ listDataByLang: [{ lang: 'zh', items }] });
+assert.match(
+  postNavFor('zh', '/b/'),
+  /post-nav-newer" href="\/c\/"[\s\S]*← 较新[\s\S]*post-nav-older" href="\/a\/"/
+);
+assert.doesNotMatch(postNavFor('zh', '/a/'), /post-nav-older/);
+assert.equal(postNavFor('zh', '/missing/'), '');
 
 console.log('self-check ok');

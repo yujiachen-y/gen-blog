@@ -25,8 +25,9 @@ import {
 } from './shared/templates.js';
 import { buildPostSummary, countWords, decorateListItems } from './shared/list-presenter.js';
 import { buildSearchIndex } from './content/search-index.js';
-import { createFooterBuilder } from './content/footer.js';
+import { createFooterBuilder, createPostNavBuilder } from './content/footer.js';
 import { buildTocHtml } from './content/pages.js';
+import { settleHeadings } from './content/headings.js';
 import {
   buildListUrl,
   buildPostCoverPath,
@@ -605,29 +606,6 @@ const processCoverPicture = async ({ post, allowRemoteImages, imagePipeline }) =
   });
 };
 
-const normalizeTitleText = (value) =>
-  String(value || '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase();
-
-const stripDuplicateTitleHtml = (html, title) => {
-  if (!html || !title) return html;
-  const match = html.match(/^\s*<h1\b[^>]*>([\s\S]*?)<\/h1>\s*/i);
-  if (!match) return html;
-  const inner = match[1].replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/gi, ' ');
-  if (normalizeTitleText(inner) !== normalizeTitleText(title)) return html;
-  return html.slice(match[0].length);
-};
-
-const filterDuplicateTitleToc = (toc, title) => {
-  if (!Array.isArray(toc) || toc.length === 0 || !title) return toc;
-  const first = toc[0];
-  if (!first || first.level !== 1) return toc;
-  if (normalizeTitleText(first.text) !== normalizeTitleText(title)) return toc;
-  return toc.slice(1);
-};
-
 const processSinglePost = async ({ post, allowRemoteImages, imagePipeline }) => {
   const coverPicture = await processCoverPicture({
     post,
@@ -649,13 +627,17 @@ const processSinglePost = async ({ post, allowRemoteImages, imagePipeline }) => 
     pathExists,
   });
   const isAbout = post.translationKey === 'about';
-  const contentHtml = stripDuplicateTitleHtml(rawContentHtml, post.title);
-  const toc = filterDuplicateTitleToc(rawToc, post.title);
+  const {
+    html: contentHtml,
+    toc,
+    subtitleHtml,
+  } = settleHeadings(rawContentHtml, rawToc, post.title);
   const tocHtml = isAbout ? '' : buildTocHtml(toc, post.lang);
   return {
     ...post,
     coverPicture,
     contentHtml,
+    subtitleHtml,
     wordCount: countWords(contentHtml),
     tocHtml,
     tocLayoutClass: isAbout ? 'no-toc' : tocHtml ? 'has-toc' : 'no-toc',
@@ -825,6 +807,7 @@ const run = async () => {
   });
   await writePostPages({
     footerFor,
+    postNavFor: createPostNavBuilder({ listDataByLang }),
     postPages,
     buildDir,
     postTemplate,

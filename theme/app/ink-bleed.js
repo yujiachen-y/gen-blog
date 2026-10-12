@@ -5,7 +5,7 @@
 import { pageData } from './state.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const DURATION = 1500;
+const DURATION = 750;
 const STAGGER = 50;
 const MAX_STAGGERED = 8;
 const MAX_SCALE = 36;
@@ -72,6 +72,11 @@ export const initInkBleed = () => {
       .forEach((el, index) =>
         bleed(el, createBleedFilter(defs, index + 1), Math.min(index, MAX_STAGGERED) * STAGGER)
       );
+    try {
+      sessionStorage.setItem('gen-blog-inked', '1');
+    } catch {
+      // Storage blocked: the ink just soaks in again next time.
+    }
   }
   root.classList.remove('ink-pending');
 };

@@ -159,9 +159,10 @@ const updateLangSwitchers = (lang) => {
     if (!toggle) {
       return;
     }
-    toggle.textContent = lang === 'zh' ? '中文' : 'EN';
-    toggle.setAttribute('aria-label', `Switch language (current ${lang})`);
-    toggle.setAttribute('aria-pressed', lang === 'zh');
+    toggle.querySelectorAll('[data-lang]').forEach((option) => {
+      option.toggleAttribute('aria-current', option.dataset.lang === lang);
+    });
+    toggle.setAttribute('aria-label', lang === 'zh' ? 'Switch to English' : '切换到中文');
   });
 };
 

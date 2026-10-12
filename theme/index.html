@@ -7,7 +7,12 @@
       (function () {
         var nav = performance.getEntriesByType('navigation')[0];
         var returning = nav && nav.type === 'back_forward';
-        if (!returning && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        // The ink soaks in once per visit; later trips to the list show it settled.
+        var inked = false;
+        try {
+          inked = sessionStorage.getItem('gen-blog-inked') === '1';
+        } catch (error) {}
+        if (!returning && !inked && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
           document.documentElement.classList.add('ink-pending');
         }
         // Coming back (back/forward) should look exactly as the reader left it.

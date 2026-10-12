@@ -144,7 +144,7 @@ The only shadow allowed: `0 1px 0 var(--rule)` as a subtle bottom-border on the 
 
 ### Post page
 
-- Single header block: kicker line (`YYYY · MM · DD · CATEGORY` in `--t-micro`), then `--t-h1` title in serif. **No duplicate H1** — the markdown's first H1 is suppressed when it matches the frontmatter title.
+- Single header block: kicker line (`YYYY · MM · DD · CATEGORY` in `--t-micro`), then `--t-h1` title in serif. **One H1 per page**: the markdown's first H1 is suppressed when it matches the frontmatter title; a lone H1 leading the body's headings becomes a subtitle under the title; otherwise every body heading drops a level.
 - TOC: left sidebar at ≥1100px, collapsed disclosure at top below 1100px.
 - Body: serif, `--t-body`, max 68ch.
 - Inline links: ink-blue, no underline, 1px ink-blue bottom border (text-decoration-skip).
@@ -152,14 +152,15 @@ The only shadow allowed: `0 1px 0 var(--rule)` as a subtle bottom-border on the 
 - Code blocks: `--surface` bg, mono, no rounded corners — square edges, hairline border. Inline code: `--surface` bg, 2px horizontal padding, no border.
 - Blockquotes: serif italic, indented 24px, ink-blue mark `❝` at start (CSS `::before`), no left stripe.
 - Artifact banner (e.g., "Open slides"): full hairline-bordered row, sans label left, arrow right. No card shadow.
+- After the body: the newer (left) and older (right) post by name and date, then a collapsed `Cite this article · APA · BibTeX` row.
 
 ### Ask AI
 
 Side door, not centerpiece. Visual contract:
 
-- No gradient text. Page title set as a normal post-style header: kicker `ASK · AI`, h1 in serif `Ask anything about my writing.`
+- No gradient text. Page title set as a normal post-style header: kicker `ASK · AI`, h1 in serif `Ask about what I’ve written.` The subtitle says the question opens in ChatGPT.
 - Single input field, hairline-bordered, full content width. `Ask` button merges into the right edge of the input — same height, ink-blue text, no fill until hover.
-- Drop the suggestion chips. Replace with one line of plain text: _"Or copy a prompt for [ChatGPT] [Claude] [Gemini]"_ — text links, ink-blue, no pill bg.
+- Drop the suggestion chips. Replace with one line of plain text: _"Or copy the prompt for [Claude] · [Gemini]"_ (Ask already opens ChatGPT) — text links, ink-blue, no pill bg.
 - Prompt panel: collapsed by default, opens to a `--surface` block with mono pre.
 - Match the blog's serif voice. No "AI startup" elements.
 

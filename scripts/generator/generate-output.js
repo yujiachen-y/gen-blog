@@ -182,6 +182,7 @@ const writeSinglePostPage = async ({
   authorData,
   commentsConfig,
   footerFor,
+  postNavFor,
 }) => {
   const canonicalUrl = buildUrl(siteUrl, post.url);
   const isAbout = post.translationKey === 'about';
@@ -200,6 +201,7 @@ const writeSinglePostPage = async ({
   });
   const html = renderTemplate(postTemplate, {
     FOOTER: footerFor?.(post.lang, isAbout ? null : post.url) || '',
+    POST_NAV: (!isAbout && postNavFor?.(post.lang, post.url)) || '',
     ...buildPostTemplateValues({
       post,
       isAbout,

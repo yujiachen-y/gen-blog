@@ -135,9 +135,13 @@ export const buildArticleHtml = (post, options = {}) => {
   const frontmatterHtml = isAbout ? '' : buildFrontmatterHtml(post);
   const artifactsHtml = isAbout ? '' : buildArtifactBannerHtml(post);
 
+  const subtitleHtml = post.subtitleHtml
+    ? `\n  <p class="article-subtitle">${post.subtitleHtml}</p>`
+    : '';
+
   return `\n${coverHtml}\n<div class="article-text-content">\n  <h1 class="article-hero">${escapeHtml(
     post.title
-  )}</h1>${frontmatterHtml}${artifactsHtml}\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
+  )}</h1>${subtitleHtml}${frontmatterHtml}${artifactsHtml}\n  <div class="article-body">${post.contentHtml}</div>\n</div>\n`;
 };
 
 export const buildTocHtml = (tocItems, lang) => {
@@ -145,11 +149,8 @@ export const buildTocHtml = (tocItems, lang) => {
     return '';
   }
   const title = getSidebarTitle('toc', lang);
-  // Two levels read as an outline; deeper headings crowd the sidebar. A lone leading H1
-  // is the body's own title (the post title is rendered separately), so skip past it.
-  const levels = tocItems.map((item) => item.level);
-  const loneTitle = levels[0] === 1 && levels.lastIndexOf(1) === 0 && levels.length > 1;
-  const top = loneTitle ? 2 : Math.min(...levels);
+  // Two levels read as an outline; deeper headings crowd the sidebar.
+  const top = Math.min(...tocItems.map((item) => item.level));
   const items = tocItems
     .filter((item) => item.level >= top && item.level <= top + 1)
     .map(

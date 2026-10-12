@@ -129,14 +129,18 @@ const resolveTranslationKey = () => {
 };
 
 const buildCitationHeading = ({ labels }) => {
-  const heading = document.createElement('div');
+  const heading = document.createElement('summary');
   heading.className = 'citation-toolbar';
 
-  const label = document.createElement('div');
+  const label = document.createElement('span');
   label.className = 'citation-label';
   label.textContent = labels.title;
 
-  heading.append(label);
+  const formats = document.createElement('span');
+  formats.className = 'citation-formats';
+  formats.textContent = `${labels.apa} · ${labels.bibtex}`;
+
+  heading.append(label, formats);
   return heading;
 };
 
@@ -200,5 +204,8 @@ export const initCitation = () => {
     buildCitationBlock({ title: labels.bibtex, text: bibtexCitation, labels })
   );
 
-  section.append(buildCitationHeading({ labels }), blocks);
+  const details = document.createElement('details');
+  details.className = 'citation-details';
+  details.append(buildCitationHeading({ labels }), blocks);
+  section.append(details);
 };

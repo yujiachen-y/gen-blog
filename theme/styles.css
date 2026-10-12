@@ -203,6 +203,11 @@
   padding: 0;
 }
 
+/* A class that sets display would otherwise beat the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: calc(var(--nav-h) + var(--s-4));
@@ -444,13 +449,23 @@ body[data-page='post'] .nav-link-button[data-nav='blog'] {
   transition:
     color var(--d-1) var(--ease-out),
     border-color var(--d-1) var(--ease-out);
-  min-width: 56px;
+  display: inline-flex;
+  gap: var(--s-1);
   text-align: center;
 }
 
 .lang-toggle:hover {
   color: var(--text);
   border-color: var(--text-muted);
+}
+
+/* Both languages show; the one being read is inked. */
+.lang-toggle [aria-current] {
+  color: var(--ink);
+}
+
+.lang-toggle-sep {
+  color: var(--text-faint);
 }
 
 .theme-switcher {
@@ -893,6 +908,15 @@ body[data-page='about'] .article-page {
   letter-spacing: -0.015em;
   color: var(--text);
   margin: 0 0 var(--s-5);
+}
+
+/* The body's own leading title, set as a subtitle under the post title (settleBodyHeadings). */
+.article-subtitle {
+  margin: calc(var(--s-3) - var(--s-5)) 0 var(--s-5);
+  font-family: var(--font-serif);
+  font-size: var(--t-h3);
+  line-height: 1.4;
+  color: var(--text-muted);
 }
 
 .article-body {
@@ -1479,6 +1503,79 @@ body[data-page='about'] .article-page {
 }
 
 /* Citation */
+/* Neighbouring posts, named, right after the article: newer on the left, older on the right. */
+.post-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-5);
+  margin-top: var(--s-7);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.post-nav-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-height: 44px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.post-nav-older {
+  grid-column: 2;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.post-nav-meta {
+  display: flex;
+  gap: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.post-nav-dir {
+  color: var(--ink);
+}
+
+.post-nav-title {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.35;
+  transition: color var(--d-1) var(--ease-out);
+}
+
+.post-nav-link:hover .post-nav-title,
+.post-nav-link:focus-visible .post-nav-title {
+  color: var(--ink);
+}
+
+@media (max-width: 540px) {
+  .post-nav {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-top: 0;
+  }
+
+  .post-nav-link {
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .post-nav-older {
+    grid-column: auto;
+    align-items: stretch;
+    text-align: left;
+  }
+
+  .post-nav-meta {
+    justify-content: space-between;
+  }
+}
+
 .citation-section {
   margin-top: var(--s-7);
   padding-top: var(--s-5);
@@ -1486,6 +1583,49 @@ body[data-page='about'] .article-page {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
+}
+
+.post-nav + .citation-section {
+  margin-top: var(--s-5);
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Collapsed by default: there for whoever cites, out of every other reader's way. */
+.citation-details > summary {
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 1px solid var(--rule);
+}
+
+.citation-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.citation-formats {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.citation-formats::after {
+  content: '⌄';
+  content: '⌄' / '';
+  display: inline-block;
+  line-height: 1;
+  transition: transform var(--d-2) var(--ease-out);
+}
+
+.citation-details[open] .citation-formats::after {
+  transform: rotate(180deg);
+}
+
+.citation-details > summary:hover .citation-label {
+  color: var(--ink);
 }
 
 .citation-section:empty {
@@ -2021,28 +2161,6 @@ body[data-page='ask-ai'] .ask-ai-page {
   max-width: var(--reading-max);
 }
 
-.ask-ai-trust {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  font-family: var(--font-sans);
-  font-size: var(--t-micro);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.ask-ai-trust::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  background: var(--ink);
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
 .ask-ai-query {
   width: 100%;
   display: flex;
@@ -2100,124 +2218,48 @@ body[data-page='ask-ai'] .ask-ai-page {
   border-left-color: var(--ink);
 }
 
-/* Drop the suggestion chips entirely */
-.ask-ai-chip-list {
-  display: none;
+/* Side doors: one line of text links for the other assistants, then the prompt itself. */
+.ask-ai-manual {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
 }
 
-/* Provider links — inline text style */
 .ask-ai-providers {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: var(--s-2) var(--s-4);
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
-  color: var(--text-muted);
-}
-
-.ask-ai-provider-note {
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
+  gap: var(--s-2);
+  font-family: var(--font-serif);
+  font-size: 1rem;
   color: var(--text-muted);
 }
 
 .ask-ai-provider-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-1);
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
   color: var(--ink);
   border-bottom: 1px solid color-mix(in oklch, var(--ink) 50%, transparent);
-  text-underline-offset: 3px;
+  transition: border-color var(--d-1) var(--ease-out);
 }
 
-.ask-ai-provider-link:hover {
+.ask-ai-provider-link:hover,
+.ask-ai-provider-link.is-copied {
   border-bottom-color: var(--ink);
-}
-
-.ask-ai-provider-link-arrow {
-  transition: transform var(--d-1) var(--ease-out);
-}
-
-.ask-ai-provider-link:hover .ask-ai-provider-link-arrow {
-  transform: translateX(2px);
-}
-
-/* Manual prompt panel */
-.ask-ai-manual-card {
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  background: var(--surface);
-  padding: var(--s-4) var(--s-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-4);
-}
-
-.ask-ai-manual-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-4);
-}
-
-.ask-ai-manual-summary-copy {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  text-align: left;
-}
-
-.ask-ai-manual-summary-trigger {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  text-align: left;
-}
-
-.ask-ai-manual-header {
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
-  font-weight: 600;
-  color: var(--text);
-}
-
-.ask-ai-manual-summary-trigger:hover .ask-ai-manual-header {
-  color: var(--ink);
-}
-
-.ask-ai-manual-description {
-  font-family: var(--font-sans);
-  font-size: var(--t-micro);
-  color: var(--text-muted);
 }
 
 .ask-ai-prompt-toggle {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-1);
+  gap: var(--s-2);
+  min-height: 44px;
   font-family: var(--font-sans);
-  font-size: var(--t-micro);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink);
-  padding: var(--s-2) var(--s-3);
-  border: 1px solid var(--ink);
-  border-radius: 2px;
-  flex-shrink: 0;
-  transition:
-    background var(--d-1) var(--ease-out),
-    color var(--d-1) var(--ease-out);
+  font-size: var(--t-meta);
+  color: var(--text-muted);
+  transition: color var(--d-1) var(--ease-out);
 }
 
 .ask-ai-prompt-toggle:hover {
-  background: var(--ink);
-  color: var(--bg);
+  color: var(--ink);
 }
 
 .ask-ai-prompt-toggle-chevron {
@@ -2225,104 +2267,11 @@ body[data-page='ask-ai'] .ask-ai-page {
 }
 
 .ask-ai-prompt-toggle[aria-expanded='true'] .ask-ai-prompt-toggle-chevron {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 
 .ask-ai-manual-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-4);
-  padding-top: var(--s-4);
-  border-top: 1px solid var(--rule);
-}
-
-.ask-ai-manual-content[hidden] {
-  display: none;
-}
-
-.ask-ai-manual-topline {
-  display: flex;
-  align-items: center;
-  gap: var(--s-4);
-  flex-wrap: wrap;
-}
-
-.ask-ai-manual-secondary-header {
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
-  color: var(--text-muted);
-}
-
-.ask-ai-pill-group {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  flex-wrap: wrap;
-}
-
-.ask-ai-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  padding: var(--s-2) var(--s-3);
-  border: 1px solid var(--rule-strong);
-  border-radius: 2px;
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
-  color: var(--text);
-  background: var(--surface);
-  transition:
-    border-color var(--d-1) var(--ease-out),
-    background var(--d-1) var(--ease-out);
-}
-
-.ask-ai-pill:hover {
-  border-color: var(--ink);
-  background: var(--ink-soft);
-}
-
-.ask-ai-pill-icon-wrap {
-  display: none;
-}
-
-.ask-ai-pill-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.ask-ai-pill-label {
-  font-family: var(--font-sans);
-  font-weight: 600;
-}
-
-.ask-ai-brand-pill {
-  padding: var(--s-1) var(--s-3);
-}
-
-.ask-ai-brand-lockup {
-  height: 18px;
-  width: auto;
-}
-
-.ask-ai-brand-lockup.is-hidden {
-  display: none;
-}
-
-.ask-ai-pill.is-copied {
-  border-color: var(--ink);
-  background: var(--ink-soft);
-}
-
-.ask-ai-provider-status {
-  display: none;
-  font-family: var(--font-sans);
-  font-size: var(--t-meta);
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.ask-ai-provider-status.is-visible {
-  display: inline;
+  align-self: stretch;
 }
 
 .ask-ai-prompt-wrap {
@@ -2675,9 +2624,10 @@ body,
   color: var(--ink);
 }
 
+/* Aged ink, but strong enough for 12px text: the oldest year still clears 4.5:1. */
 .year-section .card-date,
 .year-section .card-minutes {
-  color: var(--source);
+  color: color-mix(in oklch, var(--ink) 90%, transparent);
 }
 
 /* The list's paper yellows as it scrolls from the newest year down to the oldest. */
